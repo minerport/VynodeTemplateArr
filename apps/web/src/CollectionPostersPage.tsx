@@ -1,8 +1,9 @@
-import type {
-  CollectionPosterDesign,
-  CollectionPosterLayer,
-  CollectionPosterTemplate,
-  SavedCollectionPoster,
+import {
+  dynamicValueIcons,
+  type CollectionPosterDesign,
+  type CollectionPosterLayer,
+  type CollectionPosterTemplate,
+  type SavedCollectionPoster,
 } from '@vynode/contracts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
@@ -144,6 +145,10 @@ const PosterPreview = ({
           const assetPath = String(
             item.properties.imagePath ?? item.properties.iconPath ?? ''
           );
+          if (item.type === 'svg' && item.properties.systemIcon) {
+            const icon = dynamicValueIcons.find((entry) => entry.id === String(item.properties.systemIcon));
+            if (icon) return <svg className="preview-layer preview-image svg" key={item.id} viewBox="0 0 24 24" style={{ ...style, opacity: Number(item.properties.opacity ?? 100) / 100 }} aria-label={`${icon.label} icon`}><path d={icon.path} fill={String(item.properties.iconFillColor ?? 'none')} stroke={String(item.properties.iconColor ?? '#ffffff')} strokeWidth={Number(item.properties.iconStrokeWidth ?? 2)} strokeLinecap="round" strokeLinejoin="round" /></svg>;
+          }
           if (assetPath) {
             return (
               <img
@@ -228,6 +233,7 @@ export const CollectionPostersPage = () => {
   >();
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [editorZoom, setEditorZoom] = useState(100);
+  const [collectionIconSearch, setCollectionIconSearch] = useState('');
   const [editorPreviewMediaType, setEditorPreviewMediaType] =
     useState<PosterPreviewMediaType>('movie');
   const [undoStack, setUndoStack] = useState<CollectionPosterDesign[]>([]);
@@ -1865,6 +1871,15 @@ export const CollectionPostersPage = () => {
                     )}
                     {selectedLayer.type === 'svg' && (
                       <>
+                        <div className="nested-editor">
+                          <strong>Built-in icon catalog</strong>
+                          <input placeholder="Search icons" value={collectionIconSearch} onChange={(event) => setCollectionIconSearch(event.target.value)} />
+                          <select value={String(selectedLayer.properties.systemIcon ?? '')} onChange={(event) => updateLayer({}, { systemIcon: event.target.value, assetId: event.target.value ? '' : selectedLayer.properties.assetId, iconPath: event.target.value ? '' : selectedLayer.properties.iconPath })}>
+                            <option value="">Use uploaded SVG</option>
+                            {dynamicValueIcons.filter((icon) => `${icon.label} ${icon.category}`.toLowerCase().includes(collectionIconSearch.trim().toLowerCase())).map((icon) => <option key={icon.id} value={icon.id}>{icon.category} · {icon.label}</option>)}
+                          </select>
+                          {selectedLayer.properties.systemIcon && <><label>Icon color<input type="color" value={String(selectedLayer.properties.iconColor ?? '#ffffff')} onChange={(event) => updateLayer({}, { iconColor: event.target.value })} /></label><label>Fill color<input type="color" value={String(selectedLayer.properties.iconFillColor ?? '#000000')} onChange={(event) => updateLayer({}, { iconFillColor: event.target.value })} /></label><label>Stroke width<input type="number" min="0" max="12" value={Number(selectedLayer.properties.iconStrokeWidth ?? 2)} onChange={(event) => updateLayer({}, { iconStrokeWidth: Number(event.target.value) })} /></label></>}
+                        </div>
                         <div className="asset-selector">
                           <label>
                             Stored icon

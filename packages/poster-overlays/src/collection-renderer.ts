@@ -1,7 +1,8 @@
-import type {
-  CollectionPosterDesign,
-  CollectionPosterLayer,
-  SourceColorScheme,
+import {
+  dynamicValueIcons,
+  type CollectionPosterDesign,
+  type CollectionPosterLayer,
+  type SourceColorScheme,
 } from '@vynode/contracts';
 import sharp, { type OverlayOptions } from 'sharp';
 
@@ -140,9 +141,14 @@ export class NativeCollectionPosterRenderer {
       if (layer.properties.hidden === true) continue;
       let input: Uint8Array | Buffer | undefined;
       if (layer.type === 'text') input = textLayer(layer, context.title);
+      if (layer.type === 'svg' && String(layer.properties.systemIcon ?? '')) {
+        const icon = dynamicValueIcons.find((item) => item.id === String(layer.properties.systemIcon));
+        if (icon)
+          input = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="${icon.path}" fill="${String(layer.properties.iconFillColor ?? 'none')}" stroke="${String(layer.properties.iconColor ?? '#ffffff')}" stroke-width="${number(layer, 'iconStrokeWidth', 2, 0, 12)}" stroke-linecap="round" stroke-linejoin="round"/></svg>`);
+      }
       if (layer.type === 'raster' || layer.type === 'svg') {
         const assetId = String(layer.properties.assetId ?? '');
-        if (assetId && this.options.assets)
+        if (!input && assetId && this.options.assets)
           input = await this.options.assets.resolve(assetId, signal);
       }
       if (layer.type === 'person') input = context.personPoster;
@@ -169,7 +175,7 @@ export class NativeCollectionPosterRenderer {
             ? 'contain'
             : 'cover',
       });
-      if (layer.type === 'svg' && layer.properties.grayscale === true)
+      if (layer.type === 'svg' && layer.properties.grayscale === true && !layer.properties.systemIcon)
         pipeline = pipeline.grayscale().tint('#ffffff');
       if (layer.type !== 'text') {
         const opacity = number(layer, 'opacity', 100, 0, 100) / 100;
