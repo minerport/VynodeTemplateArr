@@ -127,6 +127,7 @@ export class NativeCollectionPosterRenderer {
         left.layerOrder - right.layerOrder || left.id.localeCompare(right.id)
     )) {
       this.active(signal);
+      if (layer.properties.hidden === true) continue;
       let input: Uint8Array | Buffer | undefined;
       if (layer.type === 'text') input = textLayer(layer, context.title);
       if (layer.type === 'raster' || layer.type === 'svg') {

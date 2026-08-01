@@ -62,6 +62,7 @@ const PosterPreview = ({
         {design.background.useSourceColors ? 'Source colors' : 'Vynode'}
       </span>
       {[...design.elements]
+        .filter((item) => item.properties.hidden !== true)
         .sort((left, right) => left.layerOrder - right.layerOrder)
         .map((item) => {
           const style = {
@@ -160,6 +161,7 @@ const PosterPreview = ({
       {onSelectLayer &&
         onCommitLayer &&
         [...design.elements]
+          .filter((layer) => layer.properties.hidden !== true && layer.properties.locked !== true)
           .sort((left, right) => left.layerOrder - right.layerOrder)
           .map((layer) => (
             <InteractivePosterLayer
@@ -1505,7 +1507,7 @@ export const CollectionPostersPage = () => {
                         onClick={() => setSelectedLayerId(layer.id)}
                       >
                         <span>{layer.name}</span>
-                        <small>{layer.type}</small>
+                        <small>{layer.type}{layer.properties.hidden === true ? ' · hidden' : ''}{layer.properties.locked === true ? ' · locked' : ''}</small>
                       </button>
                     ))}
                 </div>
@@ -1523,6 +1525,12 @@ export const CollectionPostersPage = () => {
                       />
                     </label>
                     <div className="layer-order-buttons">
+                      <button type="button" onClick={() => updateLayer({}, { hidden: selectedLayer.properties.hidden !== true })}>
+                        {selectedLayer.properties.hidden === true ? 'Show layer' : 'Hide layer'}
+                      </button>
+                      <button type="button" onClick={() => updateLayer({}, { locked: selectedLayer.properties.locked !== true })}>
+                        {selectedLayer.properties.locked === true ? 'Unlock layer' : 'Lock layer'}
+                      </button>
                       <button
                         type="button"
                         disabled={

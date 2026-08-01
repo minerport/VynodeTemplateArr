@@ -127,6 +127,20 @@ test('reports unavailable optional context without failing the whole poster', as
   assert.equal((await sharp(report.bytes).metadata()).format, 'webp');
 });
 
+test('omits hidden collection-poster layers without reporting failures', async () => {
+  const input = design();
+  input.elements = input.elements.map((layer) => ({
+    ...layer,
+    properties: { ...layer.properties, hidden: true },
+  }));
+  const report = await new NativeCollectionPosterRenderer().render(input, {
+    title: 'Hidden layers',
+  });
+  assert.deepEqual(report.renderedLayerIds, []);
+  assert.deepEqual(report.skippedLayers, []);
+  assert.equal((await sharp(report.bytes).metadata()).format, 'webp');
+});
+
 test('propagates cancellation and enforces the configured output limit', async () => {
   const controller = new AbortController();
   controller.abort();
