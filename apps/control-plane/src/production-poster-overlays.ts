@@ -30,6 +30,7 @@ interface StoredOverlayLibrary {
   lastSkippedItems?: number;
   lastUnchangedItems?: number;
   lastNoMatchItems?: number;
+  lastError?: string | undefined;
   lastAppliedAt?: string;
   indexedItems?: number;
   lastSyncedAt?: string;

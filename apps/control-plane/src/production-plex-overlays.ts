@@ -199,7 +199,19 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     if (!library) throw new Error('The selected Plex library is unavailable.');
     const summaries = containerMetadata(await transport.query(`/library/sections/${encodeURIComponent(libraryId)}/all?includeGuids=1&includeCollections=1&includeLabels=1&includeFields=1&includeMedia=1`, signal));
     const items: OverlayApplicationItem[] = [];
-    for (const summary of summaries) { signal?.throwIfAborted(); const key = text(summary.ratingKey); if (!key) continue; const metadata = await this.#metadata(key, signal); const item = metadata && itemFromMetadata(metadata, { key: library.key, title: library.title, type: library.type as 'movie' | 'show' }); if (item) items.push(item); }
+    for (const summary of summaries) {
+      signal?.throwIfAborted();
+      const key = text(summary.ratingKey);
+      if (!key) continue;
+      const enriched = Object.hasOwn(summary, 'Guid') && Object.hasOwn(summary, 'Media');
+      const metadata = enriched ? summary : await this.#metadata(key, signal);
+      const item = metadata && itemFromMetadata(metadata, {
+        key: library.key,
+        title: library.title,
+        type: library.type as 'movie' | 'show',
+      });
+      if (item) items.push(item);
+    }
     await this.store.updateLibraryRun(libraryId, { itemCount: items.length, indexedItems: items.length, lastSyncedAt: new Date().toISOString() });
     return items;
   }
@@ -236,7 +248,13 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     }
     if (reset) return this.#application.reset(items, signal);
     const workspace = await this.store.get(); const templates = workspace.templates.filter((template) => library.enabledTemplateIds.includes(template.id));
-    const primary = await this.#application.apply(items, templates, workspace.source.source, library.tmdbLanguage, signal);
+    const primary = await this.#application.apply(
+      items, templates, workspace.source.source, library.tmdbLanguage, signal,
+      (completed, failed) => this.store.updateLibraryRun(library.id, {
+        processedItems: completed - failed,
+        failedItems: failed,
+      }).then(() => undefined)
+    );
     const seasonTemplates = templates.filter((template) => template.tags.some((tag) => tag.toLowerCase() === 'maintainerr') || template.condition?.sections.some((section) => section.rules.some((rule) => rule.field === 'daysUntilAction')));
     if (library.type !== 'show' || !library.maintainerrSeasonOverlays || !seasonTemplates.length) return primary;
     const seasonItems = (await Promise.all((await this.maintainerrItems(signal)).filter((candidate) => !candidate.libraryId || candidate.libraryId === library.id).map((candidate) => this.#item(candidate.mediaId, signal)))).filter((item): item is OverlayApplicationItem => Boolean(item));
@@ -244,7 +262,19 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     const seasons = await this.#application.apply(seasonItems, seasonTemplates, 'plex', library.tmdbLanguage, signal);
     return { items: [...primary.items, ...seasons.items], applied: primary.applied + seasons.applied, restored: primary.restored + seasons.restored, skipped: primary.skipped + seasons.skipped, failed: primary.failed + seasons.failed };
   }
-  async #finish(id: string, result: OverlayRunResult, reset = false) { return this.store.updateLibraryRun(id, { status: result.failed ? 'error' : reset ? 'idle' : 'complete', operation: undefined, processedItems: result.items.length - result.failed, failedItems: result.failed, lastAppliedItems: result.applied, lastRestoredItems: result.restored, lastSkippedItems: result.skipped, lastNoMatchItems: result.skipped, lastAppliedAt: new Date().toISOString() }); }
+  async #finish(id: string, result: OverlayRunResult, reset = false) {
+    const unchanged = result.items.filter((item) => item.status === 'skipped' && item.reason === 'The rendered poster is unchanged.').length;
+    const noMatch = result.items.filter((item) => item.status === 'skipped' && item.reason === 'No enabled overlay template matched this item.').length;
+    const failures = result.items.filter((item) => item.status === 'failed').map((item) => `${item.ratingKey}: ${item.reason ?? 'Overlay application failed.'}`);
+    return this.store.updateLibraryRun(id, {
+      status: result.failed ? 'error' : reset ? 'idle' : 'complete', operation: undefined,
+      processedItems: result.items.length - result.failed, failedItems: result.failed,
+      lastAppliedItems: result.applied, lastRestoredItems: result.restored,
+      lastSkippedItems: result.skipped, lastUnchangedItems: unchanged,
+      lastNoMatchItems: noMatch, lastError: failures.length ? failures.join(' | ') : undefined,
+      lastAppliedAt: new Date().toISOString(),
+    });
+  }
   public async executeAll(signal: AbortSignal) {
     const libraries = (await this.store.get()).libraries;
     let applied = 0, restored = 0, skipped = 0, failed = 0;
@@ -260,7 +290,7 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
   async startLibraryJob(id: string) {
     const library = (await this.store.get()).libraries.find((value) => value.id === id); if (!library || this.#controllers.has(id)) return undefined;
     const controller = new AbortController(); this.#controllers.set(id, controller); await this.store.updateLibraryRun(id, { status: 'processing', operation: 'apply', processedItems: 0, failedItems: 0 });
-    void this.#runLibrary(library, controller.signal).then((result) => this.#finish(id, result)).catch((error) => this.store.updateLibraryRun(id, { status: controller.signal.aborted ? 'idle' : 'error', failedItems: controller.signal.aborted ? 0 : 1 })).finally(() => this.#controllers.delete(id));
+    void this.#runLibrary(library, controller.signal).then((result) => this.#finish(id, result)).catch((error) => this.store.updateLibraryRun(id, { status: controller.signal.aborted ? 'idle' : 'error', operation: undefined, failedItems: controller.signal.aborted ? 0 : 1, lastError: controller.signal.aborted ? undefined : error instanceof Error ? error.message : String(error) })).finally(() => this.#controllers.delete(id));
     return this.store.get();
   }
   async startAllLibraryJobs() { const workspace = await this.store.get(); if (this.#controllers.size || !workspace.libraries.length) return undefined; for (const library of workspace.libraries) await this.startLibraryJob(library.id); return this.store.get(); }

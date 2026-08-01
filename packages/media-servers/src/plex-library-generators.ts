@@ -153,6 +153,8 @@ export class PlexLibraryGeneratorClient {
     signal?: AbortSignal
   ): Promise<string> {
     this.assertMutationTarget();
+    const reusable = await this.findReusableCollection(input, signal);
+    if (reusable) return reusable;
     const type = input.mediaType === 'movie' ? '1' : '2';
     const filter = new URLSearchParams({
       type,
@@ -186,6 +188,55 @@ export class PlexLibraryGeneratorClient {
     if (!ratingKey)
       throw new Error(`Plex did not return an identity for "${input.title}".`);
     return ratingKey;
+  }
+
+  private async findReusableCollection(
+    input: {
+      title: string;
+      libraryId: string;
+      mediaType: 'movie' | 'show';
+      subtype: PlexLibraryGeneratorSubtype;
+      value: string;
+    },
+    signal?: AbortSignal
+  ): Promise<string | undefined> {
+    const response = await this.options.transport.query(
+      `/library/sections/${encodeURIComponent(input.libraryId)}/collections`,
+      signal
+    );
+    const expectedTitle = input.title.trim();
+    const matches = records(container(response).Metadata).filter(
+      (item) =>
+        text(item.title).trim() === expectedTitle &&
+        (item.smart === true || item.smart === 1 || item.smart === '1')
+    );
+    if (!matches.length) return undefined;
+    const expected = input.value.trim().toLocaleLowerCase();
+    const filterName = {
+      genres: 'genre',
+      resolutions: 'resolution',
+      'content-ratings': 'contentRating',
+      decades: undefined,
+    }[input.subtype];
+    const compatible = matches.find((item) => {
+      const content = text(item.content);
+      if (!content) return true;
+      try {
+        const parameters = new URL(content).searchParams;
+        if (input.subtype === 'decades') {
+          const start = Number.parseInt(input.value, 10);
+          return (
+            parameters.get('year>') === String(start) &&
+            parameters.get('year<') === String(start + 9)
+          );
+        }
+        const actual = filterName ? parameters.get(filterName) : undefined;
+        return actual?.trim().toLocaleLowerCase() === expected.replace(/p$/i, '');
+      } catch {
+        return false;
+      }
+    });
+    return compatible ? text(compatible.ratingKey) || undefined : undefined;
   }
 
   public async delete(ratingKey: string, signal?: AbortSignal): Promise<void> {

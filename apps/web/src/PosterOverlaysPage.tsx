@@ -330,6 +330,7 @@ export const PosterOverlaysPage = () => {
                   Last run: {library.lastAppliedItems ?? 0} updated, {library.lastUnchangedItems ?? 0} already current, {library.lastRestoredItems ?? 0} restored, {library.lastNoMatchItems ?? 0} with no matching overlay, and {library.failedItems} failed.
                 </p>
               )}
+              {library.lastError && <p className="helper-text error-text">Last error: {library.lastError}</p>}
               {!library.enabledTemplateIds.length && (
                 <p className="helper-text">No overlays are selected for this library. Choose one or more overlays before applying.</p>
               )}

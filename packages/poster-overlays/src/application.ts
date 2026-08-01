@@ -139,7 +139,8 @@ export class OverlayApplicationService {
     templates: readonly OverlayTemplateSummary[],
     source: PosterSource,
     language: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    onProgress?: (completed: number, failed: number, total: number) => void | Promise<void>
   ): Promise<OverlayRunResult> {
     return this.coordinator.run('apply-overlays', async () => {
       const results: OverlayItemResult[] = [];
@@ -157,6 +158,11 @@ export class OverlayApplicationService {
             reason: error instanceof Error ? error.message : String(error),
           });
         }
+        await onProgress?.(
+          results.length,
+          results.filter((result) => result.status === 'failed').length,
+          items.length
+        );
       }
       return summarize(results);
     });
@@ -333,15 +339,6 @@ export class OverlayApplicationService {
     }
 
     const renderedHash = digest(rendered.bytes);
-    if (previous?.lastAppliedHash === renderedHash) {
-      return {
-        ratingKey: item.ratingKey,
-        status: 'skipped',
-        reason: 'The rendered poster is unchanged.',
-        appliedTemplateIds: rendered.appliedTemplateIds,
-      };
-    }
-
     const basePosterKey = previous?.basePosterKey ?? `base:${item.ratingKey}`;
     if (!previous) await this.options.bases.put(basePosterKey, acquired.bytes);
     const basePosterHash = digest(renderBase);

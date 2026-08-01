@@ -127,3 +127,38 @@ test('creates exact smart filters and cleans up generated collections', async ()
   assert.match(decoded, /year<=1999/);
   assert.equal(requests.at(-1), 'DELETE /library/collections/501');
 });
+
+test('reuses a matching smart collection left behind by an interrupted sync', async () => {
+  const requests: string[] = [];
+  const transport = {
+    async query(path: string) {
+      requests.push(`GET ${path}`);
+      return {
+        MediaContainer: {
+          Metadata: [{
+            ratingKey: '777',
+            title: '4K Quality',
+            smart: true,
+            content: 'server://machine/com.plexapp.plugins.library/library/sections/1/all?type=1&resolution=4K',
+          }],
+        },
+      };
+    },
+    async postJson(path: string) {
+      requests.push(`POST ${path}`);
+      throw new Error('must not create a duplicate');
+    },
+    async delete() {},
+  };
+  const service = new PlexLibraryGeneratorClient({
+    transport: transport as never,
+    machineIdentifier: 'machine',
+    verifiedServerName: 'Plex',
+    allowedMutationServerNames: new Set(['Plex']),
+  });
+  assert.equal(await service.createSmart({
+    title: '4K Quality', libraryId: '1', mediaType: 'movie',
+    subtype: 'resolutions', value: '4K',
+  }), '777');
+  assert.equal(requests.filter((value) => value.startsWith('POST ')).length, 0);
+});

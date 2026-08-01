@@ -143,6 +143,15 @@ test('preserves the clean base before upload and records the applied digest', as
   assert.deepEqual(current.states.get('101')?.appliedTemplateIds, ['quality']);
 });
 
+test('reports item progress while a library overlay run is active', async () => {
+  const current = fixture();
+  const progress: number[] = [];
+  await current.service.apply(items, templates, 'plex', 'en-US', undefined, (completed) => {
+    progress.push(completed);
+  });
+  assert.deepEqual(progress, [1]);
+});
+
 test('derives placeholder overlay context from managed Plex labels', async () => {
   const current = fixture();
   await current.service.apply(
@@ -193,14 +202,13 @@ test('restores stale overlays when no current template matches', async () => {
   assert.equal(current.bases.size, 0);
 });
 
-test('does not replace the preserved base on repeated application', async () => {
+test('re-applies an unchanged render so an explicit run repairs Plex poster drift', async () => {
   const current = fixture();
   await current.service.apply(items, templates, 'plex', 'en-US');
   const result = await current.service.apply(items, templates, 'plex', 'en-US');
-  assert.equal(result.skipped, 1);
-  assert.equal(result.items[0]?.reason, 'The rendered poster is unchanged.');
+  assert.equal(result.applied, 1);
   assert.deepEqual([...current.bases.get('base:101')!], [1, 2, 3]);
-  assert.equal(current.uploaded.length, 1);
+  assert.equal(current.uploaded.length, 2);
   assert.deepEqual(current.renderedFrom, [
     [1, 2, 3],
     [1, 2, 3],
