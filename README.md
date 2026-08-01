@@ -37,9 +37,8 @@ posters, overlays, watchlists, requests, downloads, and missing media.
 7. SQLite is the durable storage backend for this release candidate.
 8. Plex is the supported media-server target for this release candidate.
 
-Testing-only behavior is labeled `NONRELEASE` and tracked in
-[`NONRELEASE.md`](./NONRELEASE.md). A production release is blocked until every
-active item is removed, replaced, or explicitly reclassified through review.
+Release validation rejects temporary release markers, development-only
+versions, incomplete parity entries, and unfinished integration rows.
 
 ## Workspace
 

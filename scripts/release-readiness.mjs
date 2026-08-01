@@ -1,4 +1,4 @@
-import { access, readFile } from 'node:fs/promises';
+import { access, readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
@@ -10,15 +10,29 @@ const checks = [];
 const add = (area, requirement, ready, evidence) =>
   checks.push({ area, requirement, ready, evidence });
 
-const nonrelease = await text('NONRELEASE.md');
-const openReleaseGates = nonrelease
-  .split(/\r?\n/)
-  .filter((line) => /^- \[ \]/.test(line));
+const releaseMarker = ['NON', 'RELEASE'].join('');
+const scanRoots = ['apps', 'packages', 'scripts', 'docs'];
+const scanExtensions = ['.js', '.mjs', '.ts', '.tsx', '.md'];
+const filesUnder = async (directory) => {
+  const entries = await readdir(resolve(root, directory), { withFileTypes: true });
+  const paths = await Promise.all(entries.map(async (entry) => {
+    const relative = `${directory}/${entry.name}`;
+    return entry.isDirectory() ? filesUnder(relative) : [relative];
+  }));
+  return paths.flat();
+};
+const markerFiles = [];
+for (const directory of scanRoots) {
+  for (const path of await filesUnder(directory)) {
+    if (!scanExtensions.some((extension) => path.endsWith(extension))) continue;
+    if ((await text(path)).includes(releaseMarker)) markerFiles.push(path);
+  }
+}
 add(
   'Release hygiene',
-  'Every NONRELEASE item is closed or explicitly approved',
-  openReleaseGates.length === 0,
-  `${openReleaseGates.length} open release gate(s)`
+  'No temporary release markers remain in shipped source or documentation',
+  markerFiles.length === 0 && !(await exists(`${releaseMarker}.md`)),
+  markerFiles.length ? markerFiles.join(', ') : '0 temporary release marker(s)'
 );
 
 const rootPackage = JSON.parse(await text('package.json'));
