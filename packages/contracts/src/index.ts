@@ -505,6 +505,7 @@ export interface ManagedCollection {
   libraryOrder: number;
   status: 'ready' | 'needs-sync' | 'syncing' | 'error';
   lastSyncedAt?: string;
+  lastSyncError?: string | undefined;
   plexRatingKey?: string;
   posterSettings?: CollectionPosterSettings;
   behaviorSettings?: CollectionBehaviorSettings;

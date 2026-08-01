@@ -1395,6 +1395,7 @@ const AllCollectionsPage = () => {
   const [library, setLibrary] = useState('all');
   const [source, setSource] = useState('all');
   const [status, setStatus] = useState('all');
+  const [editorMessage, setEditorMessage] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState('Loading collections…');
   const [editorId, setEditorId] = useState<string>();
@@ -1532,6 +1533,15 @@ const AllCollectionsPage = () => {
       ),
     [data, library, query, source, status]
   );
+  const filteredDiscovered = useMemo(
+    () =>
+      (data?.discoveredPlexItems ?? []).filter(
+        (item) =>
+          (library === 'all' || item.libraryId === library) &&
+          (!query || item.name.toLowerCase().includes(query.toLowerCase()))
+      ),
+    [data, library, query]
+  );
   const openPreview = async (collection: ManagedCollection) => {
     setPreview(collection);
     setPreviewResult(undefined);
@@ -1624,6 +1634,7 @@ const AllCollectionsPage = () => {
     return [...requested];
   }, [data, deleteIds]);
   const openEditor = (collection?: ManagedCollection) => {
+    setEditorMessage('');
     setEditorId(collection?.id ?? '');
     const firstMovieLibrary = data?.libraries.find(
       (item) => item.mediaType === 'movie'
@@ -1667,6 +1678,7 @@ const AllCollectionsPage = () => {
   const saveEditor = async (event: React.FormEvent) => {
     event.preventDefault();
     setBusy(true);
+    setEditorMessage('');
     setMessage('Saving collection…');
     try {
       await api.saveCollection(editorId || undefined, draft);
@@ -1679,9 +1691,10 @@ const AllCollectionsPage = () => {
           : 'Collection created and ready to synchronize.'
       );
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : 'Unable to save collection.'
-      );
+      const detail =
+        error instanceof Error ? error.message : 'Unable to save collection.';
+      setEditorMessage(detail);
+      setMessage(detail);
     } finally {
       setBusy(false);
     }
@@ -2086,7 +2099,7 @@ const AllCollectionsPage = () => {
               onClick={() => setShowDiscoveredPlexItems((current) => !current)}
             >
               {showDiscoveredPlexItems ? 'Hide' : 'Show'}{' '}
-              {data?.discoveredPlexItems?.length ?? 0} discovered Plex items
+              {filteredDiscovered.length} discovered Plex items
             </button>
             {(data?.discoveredPlexItems?.filter((item) => item.missing)
               .length ?? 0) > 0 && (
@@ -2105,7 +2118,7 @@ const AllCollectionsPage = () => {
             )}
           </div>
           {showDiscoveredPlexItems && <div className="discovered-plex-list">
-            {data?.discoveredPlexItems?.map((item) => (
+            {filteredDiscovered.map((item) => (
               <article key={item.id}>
                 <span className="collection-poster">
                   {item.kind === 'default-hub'
@@ -2256,6 +2269,11 @@ const AllCollectionsPage = () => {
                   {collection.itemCount} items ·{' '}
                   {collection.sourceType.toUpperCase()}
                 </small>
+                {collection.lastSyncError && (
+                  <small className="error-text">
+                    Last sync error: {collection.lastSyncError}
+                  </small>
+                )}
               </span>
             </label>
             <span>{collection.libraryName}</span>
@@ -2358,6 +2376,11 @@ const AllCollectionsPage = () => {
                 ×
               </button>
             </div>
+            {editorMessage && (
+              <p className="source-feedback error-text" role="alert">
+                {editorMessage}
+              </p>
+            )}
             {!editorId && (
               <section className="collection-template-picker">
                 <label>
@@ -5334,7 +5357,7 @@ export const MainApp = ({
         </nav>
         <div className="sidebar-version">
           <small>Serious test build</small>
-          <span>Vynode 0.1.0-rc.6</span>
+          <span>Vynode 0.1.0-rc.7</span>
         </div>
       </aside>
       <section className="main-content">

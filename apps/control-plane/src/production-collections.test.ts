@@ -169,6 +169,7 @@ test('persists verified synchronization results and records failed runs', async 
     );
     stored = (await surface.get()).collections[0]!;
     assert.equal(stored.status, 'error');
+    assert.equal(stored.lastSyncError, 'Plex unavailable');
     storage.close();
   } finally {
     await rm(directory, { recursive: true, force: true });

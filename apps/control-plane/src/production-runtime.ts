@@ -927,7 +927,16 @@ export const createProductionRuntime = async (
       new FileDurableJobRepository(
         resolve(configuration.dataDirectory, 'jobs', 'queue.json')
       ),
-      collections
+      collections,
+      () => new Date(),
+      (collectionId, message) => {
+        audit.append({
+          action: 'collection.sync',
+          target: collectionId,
+          outcome: 'failure',
+          details: { message },
+        });
+      }
     );
     const plexDiscoveryRepository = new FilePlexDiscoveryRepository({
       path: resolve(
@@ -1009,6 +1018,14 @@ export const createProductionRuntime = async (
         return item.mediaType === 'movie'
           ? { inRadarr: found, isMonitored: monitored, radarrTags: [...labels] }
           : { inSonarr: found, isMonitored: monitored, sonarrTags: [...labels] };
+      },
+      (libraryId, message) => {
+        audit.append({
+          action: 'overlay.apply',
+          target: libraryId,
+          outcome: 'failure',
+          details: { message },
+        });
       }
     );
     posterOverlays.connectOperations(overlayExecutor);

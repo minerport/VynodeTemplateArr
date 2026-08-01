@@ -278,6 +278,9 @@ export class ProductionCollectionSurface {
         ...(current?.lastSyncedAt
           ? { lastSyncedAt: current.lastSyncedAt }
           : {}),
+        ...(current?.lastSyncError
+          ? { lastSyncError: current.lastSyncError }
+          : {}),
         ...(current?.plexRatingKey
           ? { plexRatingKey: current.plexRatingKey }
           : {}),
@@ -551,6 +554,7 @@ export class ProductionCollectionSurface {
             item.status = 'ready';
             item.itemCount = generated.references.length;
             item.lastSyncedAt = this.now().toISOString();
+            item.lastSyncError = undefined;
             item.sourceSettings = {
               ...item.sourceSettings!,
               plexGenerator: {
@@ -609,6 +613,7 @@ export class ProductionCollectionSurface {
             item.status = 'ready';
             item.itemCount = generated.references.length;
             item.lastSyncedAt = this.now().toISOString();
+            item.lastSyncError = undefined;
             item.sourceSettings = {
               ...item.sourceSettings!,
               generatedPersonCollections: generated.references,
@@ -649,6 +654,7 @@ export class ProductionCollectionSurface {
           item.plexRatingKey = result.plexRatingKey;
           item.itemCount = result.itemCount;
           item.lastSyncedAt = this.now().toISOString();
+          item.lastSyncError = undefined;
           if (item.behaviorSettings?.timeRestriction)
             item.isActive = plexItemIsActive(
               item.behaviorSettings.timeRestriction,
@@ -660,7 +666,10 @@ export class ProductionCollectionSurface {
     } catch (error) {
       await this.#mutate((state) => {
         const item = state.collections.find((candidate) => candidate.id === id);
-        if (item) item.status = 'error';
+        if (item) {
+          item.status = 'error';
+          item.lastSyncError = error instanceof Error ? error.message : String(error);
+        }
       });
       throw error;
     }

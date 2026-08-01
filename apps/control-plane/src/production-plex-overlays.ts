@@ -94,7 +94,8 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     private readonly fetchImplementation: typeof globalThis.fetch = globalThis.fetch,
     imdbClient: Pick<ImdbClient, 'title'> = new ImdbClient(),
     private readonly maintainerrItems: (signal?: AbortSignal) => Promise<readonly MaintainerrOverlayItem[]> = async () => [],
-    private readonly arrContext: (item: OverlayApplicationItem, signal?: AbortSignal) => Promise<Readonly<Record<string, string | number | boolean | readonly string[] | undefined>>> = async () => ({})
+    private readonly arrContext: (item: OverlayApplicationItem, signal?: AbortSignal) => Promise<Readonly<Record<string, string | number | boolean | readonly string[] | undefined>>> = async () => ({}),
+    private readonly reportFailure: (libraryId: string, message: string) => void = () => undefined
   ) {
     const imdbMetadataCache = new AdaptiveTtlCache<Awaited<ReturnType<ImdbClient['title']>>>({ minimumTtlMs: 15 * 60_000, initialTtlMs: 6 * 60 * 60_000, maximumTtlMs: 7 * 24 * 60 * 60_000, negativeTtlMs: 5 * 60_000 });
     const tmdbMetadataCache = new AdaptiveTtlCache<RecordValue>({ minimumTtlMs: 15 * 60_000, initialTtlMs: 6 * 60 * 60_000, maximumTtlMs: 7 * 24 * 60 * 60_000, negativeTtlMs: 5 * 60_000 });
@@ -266,6 +267,7 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     const unchanged = result.items.filter((item) => item.status === 'skipped' && item.reason === 'The rendered poster is unchanged.').length;
     const noMatch = result.items.filter((item) => item.status === 'skipped' && item.reason === 'No enabled overlay template matched this item.').length;
     const failures = result.items.filter((item) => item.status === 'failed').map((item) => `${item.ratingKey}: ${item.reason ?? 'Overlay application failed.'}`);
+    for (const failure of failures) this.reportFailure(id, failure);
     return this.store.updateLibraryRun(id, {
       status: result.failed ? 'error' : reset ? 'idle' : 'complete', operation: undefined,
       processedItems: result.items.length - result.failed, failedItems: result.failed,
@@ -290,7 +292,7 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
   async startLibraryJob(id: string) {
     const library = (await this.store.get()).libraries.find((value) => value.id === id); if (!library || this.#controllers.has(id)) return undefined;
     const controller = new AbortController(); this.#controllers.set(id, controller); await this.store.updateLibraryRun(id, { status: 'processing', operation: 'apply', processedItems: 0, failedItems: 0 });
-    void this.#runLibrary(library, controller.signal).then((result) => this.#finish(id, result)).catch((error) => this.store.updateLibraryRun(id, { status: controller.signal.aborted ? 'idle' : 'error', operation: undefined, failedItems: controller.signal.aborted ? 0 : 1, lastError: controller.signal.aborted ? undefined : error instanceof Error ? error.message : String(error) })).finally(() => this.#controllers.delete(id));
+    void this.#runLibrary(library, controller.signal).then((result) => this.#finish(id, result)).catch((error) => { const message = error instanceof Error ? error.message : String(error); if (!controller.signal.aborted) this.reportFailure(id, message); return this.store.updateLibraryRun(id, { status: controller.signal.aborted ? 'idle' : 'error', operation: undefined, failedItems: controller.signal.aborted ? 0 : 1, lastError: controller.signal.aborted ? undefined : message }); }).finally(() => this.#controllers.delete(id));
     return this.store.get();
   }
   async startAllLibraryJobs() { const workspace = await this.store.get(); if (this.#controllers.size || !workspace.libraries.length) return undefined; for (const library of workspace.libraries) await this.startLibraryJob(library.id); return this.store.get(); }
