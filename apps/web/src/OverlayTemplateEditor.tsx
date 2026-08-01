@@ -312,6 +312,7 @@ export const OverlayTemplateEditor = ({
   const [liveGeometry,setLiveGeometry]=useState<Record<string,Pick<OverlayLayer,'x'|'y'|'width'|'height'>>>({});
   const [savedItems,setSavedItems]=useState<{id:string;name:string;kind:'icon'|'image'|'title';layer:OverlayLayer}[]>(()=>{try{return JSON.parse(localStorage.getItem('vynode-overlay-items')??'[]');}catch{return[];}});
   const [snap, setSnap] = useState(true);
+  const [zoom, setZoom] = useState(100);
   const [sample, setSample] = useState(previewSampleIndex);
   const [previewLibraryId, setPreviewLibraryId] = useState('');
   const [previewItems, setPreviewItems] = useState<
@@ -898,6 +899,15 @@ export const OverlayTemplateEditor = ({
             >
               ⌗
             </button>
+            <button className="icon-button" disabled={zoom <= 50} title="Zoom out" aria-label="Zoom out" onClick={() => setZoom((value) => Math.max(50, value - 10))}>
+              &minus;
+            </button>
+            <button className="icon-button" title="Reset zoom" onClick={() => setZoom(100)}>
+              {zoom}%
+            </button>
+            <button className="icon-button" disabled={zoom >= 200} title="Zoom in" aria-label="Zoom in" onClick={() => setZoom((value) => Math.min(200, value + 10))}>
+              +
+            </button>
             <button
               className="icon-button"
               title="Next synchronized Plex item"
@@ -1132,7 +1142,7 @@ export const OverlayTemplateEditor = ({
           <main>
             <div
               className="overlay-editor-canvas poster-interaction-canvas"
-              style={{ containerType: 'inline-size' }}
+              style={{ containerType: 'inline-size', zoom: `${zoom}%` }}
               onClick={() => setSelectedId(undefined)}
             >
               <OverlayDesignPreview

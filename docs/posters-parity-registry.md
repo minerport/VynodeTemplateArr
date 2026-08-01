@@ -36,7 +36,7 @@ This registry is the implementation checklist for the complete poster subsystem.
 ## Overlay editor
 
 - [x] Name, description, tags, automatic type, enabled state, preview poster, and refresh/cycle
-- [ ] 1000×1500 canvas, zoom, pan, selection, drag, resize, snap guides, undo/redo
+- [x] 1000×1500 canvas, zoom, pan, selection, drag, resize, snap guides, undo/redo
 - [x] Layer add/duplicate/delete/show/hide/lock/reorder controls
 - [ ] Text: value, font family/file, size, weight, style, color, opacity, alignment, stroke, shadow, rotation, position, dimensions (all except font upload, stroke, and shadow implemented)
 - [ ] Variable text: segmented literal/variable content, date formats, fallbacks, grouped variables (segments and date formats implemented)
