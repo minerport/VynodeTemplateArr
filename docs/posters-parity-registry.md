@@ -72,7 +72,7 @@ This registry is the implementation checklist for the complete poster subsystem.
 
 ## Collection poster editor
 
-- [ ] Name, description, default state, 1000×1500 canvas, zoom, snap, and undo/redo (name, description, canvas, snap, and design undo/redo implemented; zoom and metadata undo remain)
+- [x] Name, description, default state, 1000×1500 canvas, zoom, snap, and design/metadata undo and redo
 - [x] Background: color, linear/radial gradient, intensity, and source colors
 - [x] Text: content, typography, color, opacity, alignment, stroke, shadow, rotation and geometry
 - [x] Image: validated upload/stored asset selection, contain/cover crop/fill fit, opacity, rotation and geometry

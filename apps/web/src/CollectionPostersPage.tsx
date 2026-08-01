@@ -231,6 +231,8 @@ export const CollectionPostersPage = () => {
     useState<PosterPreviewMediaType>('movie');
   const [undoStack, setUndoStack] = useState<CollectionPosterDesign[]>([]);
   const [redoStack, setRedoStack] = useState<CollectionPosterDesign[]>([]);
+  const [metadataUndoStack, setMetadataUndoStack] = useState<Array<{ name: string; description: string }>>([]);
+  const [metadataRedoStack, setMetadataRedoStack] = useState<Array<{ name: string; description: string }>>([]);
   const [editorBaseline, setEditorBaseline] = useState('');
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const loadGeneration = useRef(0);
@@ -326,6 +328,28 @@ export const CollectionPostersPage = () => {
     setSelectedLayerId(item?.design.elements[0]?.id);
     setUndoStack([]);
     setRedoStack([]);
+    setMetadataUndoStack([]);
+    setMetadataRedoStack([]);
+  };
+  const updateMetadata = (input: Partial<Pick<NonNullable<typeof editor>, 'name' | 'description'>>) => {
+    if (!editor) return;
+    setMetadataUndoStack((stack) => [...stack.slice(-49), { name: editor.name, description: editor.description }]);
+    setMetadataRedoStack([]);
+    setEditor({ ...editor, ...input });
+  };
+  const undoMetadata = () => {
+    const previous = metadataUndoStack.at(-1);
+    if (!previous || !editor) return;
+    setMetadataUndoStack((stack) => stack.slice(0, -1));
+    setMetadataRedoStack((stack) => [...stack.slice(-49), { name: editor.name, description: editor.description }]);
+    setEditor({ ...editor, ...previous });
+  };
+  const redoMetadata = () => {
+    const next = metadataRedoStack.at(-1);
+    if (!next || !editor) return;
+    setMetadataRedoStack((stack) => stack.slice(0, -1));
+    setMetadataUndoStack((stack) => [...stack.slice(-49), { name: editor.name, description: editor.description }]);
+    setEditor({ ...editor, ...next });
   };
   const requestEditorClose = () => {
     if (!editor) return;
@@ -1315,6 +1339,10 @@ export const CollectionPostersPage = () => {
               </div>
             </header>
             <div className="editor-meta">
+              <div className="layer-order-buttons" aria-label="Metadata history">
+                <button type="button" disabled={!metadataUndoStack.length} onClick={undoMetadata}>Undo metadata</button>
+                <button type="button" disabled={!metadataRedoStack.length} onClick={redoMetadata}>Redo metadata</button>
+              </div>
               <label>
                 {editor.kind === 'template' ? 'Template name' : 'Poster name'}
                 <input
@@ -1322,9 +1350,7 @@ export const CollectionPostersPage = () => {
                   maxLength={120}
                   required
                   placeholder="Enter a name"
-                  onChange={(event) =>
-                    setEditor({ ...editor, name: event.target.value })
-                  }
+                  onChange={(event) => updateMetadata({ name: event.target.value })}
                 />
                 <small>{editor.name.length}/120 characters</small>
               </label>
@@ -1334,9 +1360,7 @@ export const CollectionPostersPage = () => {
                   value={editor.description}
                   maxLength={500}
                   placeholder="Enter a description"
-                  onChange={(event) =>
-                    setEditor({ ...editor, description: event.target.value })
-                  }
+                  onChange={(event) => updateMetadata({ description: event.target.value })}
                 />
                 <small>{editor.description.length}/500 characters</small>
               </label>
