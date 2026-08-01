@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>Vynode</Name>
-  <Repository>ghcr.io/minerport/vynodetemplatearr:0.1.0-rc.1</Repository>
+  <Repository>ghcr.io/minerport/vynodetemplatearr:serious-test</Repository>
   <Registry>https://github.com/minerport/VynodeTemplateArr/pkgs/container/vynodetemplatearr</Registry>
   <Network>bridge</Network>
   <MyIP/>
@@ -9,7 +9,7 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/minerport/VynodeTemplateArr/issues</Support>
   <Project>https://github.com/minerport/VynodeTemplateArr</Project>
-  <Icon>https://raw.githubusercontent.com/minerport/VynodeTemplateArr/main/unraid/vynode-icon.svg</Icon>
+  <Icon>https://raw.githubusercontent.com/minerport/VynodeTemplateArr/main/unraid/vynode-icon.png</Icon>
   <Overview>Manage Plex collections, posters, overlays, watchlists, and missing media from one self-hosted interface.</Overview>
   <Category>MediaApp:Other:</Category>
   <WebUI>http://[IP]:[PORT:7171]/</WebUI>

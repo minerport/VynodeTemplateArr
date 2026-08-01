@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Maintainer>
-  <Icon>https://raw.githubusercontent.com/minerport/VynodeTemplateArr/main/unraid/vynode-icon.svg</Icon>
+  <Icon>https://raw.githubusercontent.com/minerport/VynodeTemplateArr/main/unraid/vynode-icon.png</Icon>
   <Profile>Vynode provides self-hosted Plex collection, poster, overlay, watchlist, request, download, and missing-media automation.</Profile>
   <WebPage>https://github.com/minerport/VynodeTemplateArr</WebPage>
 </Maintainer>
