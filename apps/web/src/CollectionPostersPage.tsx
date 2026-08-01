@@ -31,6 +31,7 @@ const PosterPreview = ({
   title,
   selectedLayerId,
   snap = true,
+  zoom = 100,
   mediaType = 'movie',
   onSelectLayer,
   onCommitLayer,
@@ -39,6 +40,7 @@ const PosterPreview = ({
   title: string;
   selectedLayerId?: string;
   snap?: boolean;
+  zoom?: number;
   mediaType?: PosterPreviewMediaType;
   onSelectLayer?(id: string): void;
   onCommitLayer?(
@@ -55,7 +57,7 @@ const PosterPreview = ({
   return (
     <div
       className={`collection-poster-preview ${onSelectLayer ? 'poster-interaction-canvas' : ''}`}
-      style={{ background, containerType: 'inline-size' }}
+      style={{ background, containerType: 'inline-size', zoom: `${zoom}%` }}
       aria-label={`${title} poster preview`}
     >
       <span>
@@ -140,7 +142,7 @@ const PosterPreview = ({
                 key={item.id}
                 src={assetPath}
                 alt=""
-                style={style}
+                style={{ ...style, opacity: Number(item.properties.opacity ?? 100) / 100, objectFit: String(item.properties.fit ?? (item.type === 'raster' ? 'cover' : 'contain')) as React.CSSProperties['objectFit'] }}
               />
             );
           }
@@ -216,6 +218,7 @@ export const CollectionPostersPage = () => {
     'raster' | 'svg'
   >();
   const [snapEnabled, setSnapEnabled] = useState(true);
+  const [editorZoom, setEditorZoom] = useState(100);
   const [editorPreviewMediaType, setEditorPreviewMediaType] =
     useState<PosterPreviewMediaType>('movie');
   const [undoStack, setUndoStack] = useState<CollectionPosterDesign[]>([]);
@@ -1267,6 +1270,9 @@ export const CollectionPostersPage = () => {
                 >
                   ⌗
                 </button>
+                <button className="icon-button" type="button" disabled={editorZoom <= 50} aria-label="Zoom collection poster out" onClick={() => setEditorZoom((value) => Math.max(50, value - 10))}>&minus;</button>
+                <button className="icon-button" type="button" title="Reset poster zoom" onClick={() => setEditorZoom(100)}>{editorZoom}%</button>
+                <button className="icon-button" type="button" disabled={editorZoom >= 200} aria-label="Zoom collection poster in" onClick={() => setEditorZoom((value) => Math.min(200, value + 10))}>+</button>
                 <div
                   className="poster-preview-media-toggle"
                   role="group"
@@ -1478,6 +1484,7 @@ export const CollectionPostersPage = () => {
                     mediaType={editorPreviewMediaType}
                     selectedLayerId={selectedLayerId}
                     snap={snapEnabled}
+                    zoom={editorZoom}
                     onSelectLayer={setSelectedLayerId}
                     onCommitLayer={(id, geometry) => {
                       setSelectedLayerId(id);
@@ -1741,6 +1748,14 @@ export const CollectionPostersPage = () => {
                           JPEG, PNG, or WebP; maximum 10 MB. Files are verified
                           by content and stored with opaque server filenames.
                         </small>
+                        <label>
+                          Image fit
+                          <select value={String(selectedLayer.properties.fit ?? 'cover')} onChange={(event) => updateLayer({}, { fit: event.target.value })}>
+                            <option value="contain">Contain</option>
+                            <option value="cover">Cover / crop</option>
+                            <option value="fill">Stretch to fill</option>
+                          </select>
+                        </label>
                       </div>
                     )}
                     {selectedLayer.type === 'person' && (
@@ -1848,6 +1863,12 @@ export const CollectionPostersPage = () => {
                           Render in grayscale
                         </label>
                       </>
+                    )}
+                    {['raster', 'svg'].includes(selectedLayer.type) && (
+                      <label>
+                        Opacity ({Number(selectedLayer.properties.opacity ?? 100)}%)
+                        <input type="range" min="0" max="100" value={Number(selectedLayer.properties.opacity ?? 100)} onChange={(event) => updateLayer({}, { opacity: Number(event.target.value) })} />
+                      </label>
                     )}
                     <div className="geometry-grid">
                       {(['x', 'y', 'width', 'height', 'rotation'] as const).map(

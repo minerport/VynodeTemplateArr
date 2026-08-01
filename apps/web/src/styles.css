@@ -1539,6 +1539,8 @@
 }
 .editor-canvas-wrap {
   width: min(370px, 80%);
+  max-width: 100%;
+  overflow: auto;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
 }
 .poster-editor-layout > main > p {

@@ -75,7 +75,7 @@ This registry is the implementation checklist for the complete poster subsystem.
 - [ ] Name, description, default state, 1000×1500 canvas, zoom, snap, and undo/redo (name, description, canvas, snap, and design undo/redo implemented; zoom and metadata undo remain)
 - [x] Background: color, linear/radial gradient, intensity, and source colors
 - [ ] Text: content, typography, color, alignment, stroke, shadow, rotation and geometry
-- [ ] Image: upload/asset, crop/fit, opacity, rotation and geometry (validated durable JPEG/PNG/WebP upload, stored selection, preview, rotation, and geometry implemented; crop/fit/opacity remain)
+- [x] Image: validated upload/stored asset selection, contain/cover crop/fill fit, opacity, rotation and geometry
 - [ ] SVG/icon selection: search, category, color, opacity, rotation and geometry (validated durable SVG upload, active-content blocking, stored selection, preview, grayscale, rotation, and geometry implemented; catalog search/category/color/opacity remain)
 - [ ] Content grid: source, rows/columns, gaps, padding, item image/text options
 - [x] Layer selection, add, duplicate, delete, show/hide, lock, and reorder

@@ -153,7 +153,11 @@ export class NativeCollectionPosterRenderer {
       let pipeline = sharp(input).resize({
         width: layer.width,
         height: layer.height,
-        fit: layer.type === 'raster' ? 'cover' : 'contain',
+        fit: String(layer.properties.fit ?? (layer.type === 'raster' ? 'cover' : 'contain')) === 'fill'
+          ? 'fill'
+          : String(layer.properties.fit ?? (layer.type === 'raster' ? 'cover' : 'contain')) === 'contain'
+            ? 'contain'
+            : 'cover',
       });
       if (layer.type === 'svg' && layer.properties.grayscale === true)
         pipeline = pipeline.grayscale().tint('#ffffff');
