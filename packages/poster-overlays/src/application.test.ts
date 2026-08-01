@@ -166,6 +166,16 @@ test('returns the preserved clean poster for previews after an overlay is applie
   assert.equal(await current.service.preservedBasePoster('missing'), undefined);
 });
 
+test('re-downloads confirmed clean Plex posters into the preserved base store', async () => {
+  const current = fixture();
+  const result = await current.service.downloadCleanPlexBases(items);
+
+  assert.equal(result.downloaded, 1);
+  assert.equal(result.failed, 0);
+  assert.deepEqual(await current.service.preservedBasePoster('101'), new Uint8Array([1, 2, 3]));
+  assert.deepEqual(current.labels, [false]);
+});
+
 test('restores stale overlays when no current template matches', async () => {
   const current = fixture();
   await current.service.apply(items, templates, 'plex', 'en-US');

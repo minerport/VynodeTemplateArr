@@ -87,6 +87,12 @@ export interface OverlayRunResult {
   failed: number;
 }
 
+export interface BasePosterDownloadResult {
+  items: readonly OverlayItemResult[];
+  downloaded: number;
+  failed: number;
+}
+
 export interface OverlayApplicationServiceOptions {
   acquisition: OverlayPosterAcquirer;
   contexts: OverlayContextBuilder;
@@ -198,6 +204,49 @@ export class OverlayApplicationService {
         }
       }
       return summarize(results);
+    });
+  }
+
+  public downloadCleanPlexBases(
+    items: readonly OverlayApplicationItem[],
+    signal?: AbortSignal
+  ): Promise<BasePosterDownloadResult> {
+    return this.coordinator.run('download-base-posters', async () => {
+      const results: OverlayItemResult[] = [];
+      for (const item of items) {
+        signal?.throwIfAborted();
+        try {
+          const acquired = await this.options.acquisition.acquire(
+            'plex',
+            item,
+            '',
+            signal
+          );
+          const basePosterKey = `base:${item.ratingKey}`;
+          await this.options.bases.put(basePosterKey, acquired.bytes);
+          await this.options.states.put({
+            ratingKey: item.ratingKey,
+            basePosterKey,
+            basePosterHash: digest(acquired.bytes),
+            appliedTemplateIds: [],
+            updatedAt: this.now().toISOString(),
+          });
+          await this.options.plex.setOverlayLabel(item.ratingKey, false, signal);
+          results.push({ ratingKey: item.ratingKey, status: 'applied' });
+        } catch (error) {
+          if (signal?.aborted) throw error;
+          results.push({
+            ratingKey: item.ratingKey,
+            status: 'failed',
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+      return {
+        items: results,
+        downloaded: results.filter((item) => item.status === 'applied').length,
+        failed: results.filter((item) => item.status === 'failed').length,
+      };
     });
   }
 
