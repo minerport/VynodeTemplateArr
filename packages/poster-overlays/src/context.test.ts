@@ -115,6 +115,21 @@ test('collects condition, mapped-icon, and variable fields once', () => {
   ]);
 });
 
+test('derives show quality statistics from scanned Plex episode files', async () => {
+  const result = await new OverlayContextBuilder([]).build({
+    ratingKey: 'show-1', title: 'Series', mediaType: 'show',
+    media: [
+      { width: 3840, resolution: '4K', hdr: true, dolbyVision: true },
+      { width: 1920, resolution: '1080p', hdr: false },
+    ],
+  }, []);
+  assert.equal(result.context.episodeCount, 2);
+  assert.equal(result.context.episode4kPercent, 50);
+  assert.equal(result.context.episodeHdrPercent, 50);
+  assert.equal(result.context.episodeDvPercent, 50);
+  assert.equal(result.context.showHdr, true);
+});
+
 test('normalizes Plex metadata and selects the highest-resolution media part', async () => {
   const result = await new OverlayContextBuilder(
     [],

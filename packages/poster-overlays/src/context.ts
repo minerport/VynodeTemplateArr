@@ -9,6 +9,7 @@ export interface PlexOverlayMedia {
   mediaType: 'movie' | 'show';
   imdbId?: string;
   tmdbId?: number;
+  tvdbId?: number;
   durationMs?: number;
   userRating?: number;
   imdbRating?: number;
@@ -194,6 +195,11 @@ export class OverlayContextBuilder {
     const audio = media?.audioLanguages ?? [];
     const subtitles = media?.subtitleLanguages ?? [];
     const streamingProvider=identifyStreamingProvider(item);
+    const episodeMedia = item.mediaType === 'show' ? (item.media ?? []) : [];
+    const episodeCount = episodeMedia.length;
+    const episode4kCount = episodeMedia.filter((entry) => (entry.width ?? 0) >= 3840 || /2160|4k/i.test(entry.resolution ?? '')).length;
+    const episodeHdrCount = episodeMedia.filter((entry) => entry.hdr).length;
+    const episodeDvCount = episodeMedia.filter((entry) => entry.dolbyVision).length;
 
     const context: Record<string, OverlayContextValue> = {
       title: item.title,
@@ -274,6 +280,16 @@ export class OverlayContextBuilder {
       bitrate: media?.bitrateKbps,
       fileSize: media?.fileSize,
       filePath: media?.filePath,
+      episodeCount: episodeCount || undefined,
+      episode4kCount: episodeCount ? episode4kCount : undefined,
+      episode4kPercent: episodeCount ? Math.round((episode4kCount / episodeCount) * 100) : undefined,
+      episodeHdrCount: episodeCount ? episodeHdrCount : undefined,
+      episodeHdrPercent: episodeCount ? Math.round((episodeHdrCount / episodeCount) * 100) : undefined,
+      episodeDvCount: episodeCount ? episodeDvCount : undefined,
+      episodeDvPercent: episodeCount ? Math.round((episodeDvCount / episodeCount) * 100) : undefined,
+      showHdr: episodeCount ? episodeHdrCount > 0 : undefined,
+      showDolbyVision: episodeCount ? episodeDvCount > 0 : undefined,
+      episodeMediaSource: episodeCount ? 'Plex episode files' : undefined,
     };
 
     const warnings: { provider: string; message: string }[] = [];

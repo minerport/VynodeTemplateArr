@@ -5,15 +5,15 @@ This registry is the implementation checklist for the complete poster subsystem.
 ## Global navigation and state
 
 - [x] Poster Overlays and Collection Posters routes and tabs
-- [ ] Responsive layout, keyboard navigation, focus restoration, and accessible dialogs
-- [ ] Loading, empty, partial-failure, offline, and permission-denied states
+- [x] Responsive layout, keyboard navigation, focus restoration, and accessible dialogs
+- [x] Loading, empty, partial-failure, offline, and permission-denied states
 - [x] Grid-size preference and hide-inactive preference persistence
 - [x] Job polling without duplicate runs; safe cancellation and background continuation
 
 ## Overlay sources
 
 - [x] Initial source-selection prompt and later Change source action
-- [ ] Plex base posters: download on selection, per-library and overall progress, failures, cancellation, background continuation
+- [x] Plex base posters: download on selection, per-library and overall progress, failures, cancellation, background continuation
 - [x] Plex re-download: clean-poster warning and exact `I HAVE CLEAN POSTERS` confirmation
 - [x] Plex change detection on later runs
 - [x] Local posters: folder convention, supported extensions, TMDB fallback, mounted-path validation
@@ -38,7 +38,7 @@ This registry is the implementation checklist for the complete poster subsystem.
 - [x] Name, description, tags, automatic type, enabled state, preview poster, and refresh/cycle
 - [x] 1000×1500 canvas, zoom, pan, selection, drag, resize, snap guides, undo/redo
 - [x] Layer add/duplicate/delete/show/hide/lock/reorder controls
-- [ ] Text: value, font family/file, size, weight, style, color, opacity, alignment, stroke, shadow, rotation, position, dimensions (all except font upload implemented)
+- [x] Text: value, font family/file, size, weight, style, color, opacity, alignment, stroke, shadow, rotation, position, dimensions
 - [x] Variable text: segmented literal/variable content, date formats, strict missing-value skip behavior, and grouped layers
 - [x] Tile: fill, border, individual/locked corner radii, opacity, sizing and position
 - [x] Raster image: upload/asset selection, contain/cover/fill fit, opacity, rotation, sizing and position
@@ -89,7 +89,7 @@ This registry is the implementation checklist for the complete poster subsystem.
 - [x] Collection form upload: file picker, JPEG/PNG/WebP and 10 MB validation, preview, replace/remove
 - [x] Collection form selection popover: saved poster selection, upload, and link to poster creation
 - [x] Source-color JSON import/export with schema/version, provider-name, collision, count, and exact-color validation
-- [ ] Poster assignment persistence, fallback, sync preview, and regeneration consequences (assignment persistence, copy preservation, forced-delete cleanup, template fallback and needs-sync state implemented; rendered Plex sync preview/regeneration still pending)
+- [x] Poster assignment persistence, fallback, rendered sync preview, dependency-fingerprint regeneration, and clearly explained next-sync consequences
 
 ## Backend and production adapters
 
@@ -101,7 +101,7 @@ This registry is the implementation checklist for the complete poster subsystem.
 - [x] Local folder service and mounted-path security
 - [x] Overlay context builder, preset variables, mappings and condition evaluation
 - [x] Renderer output parity for all currently exposed overlay and collection-poster layer types
-- [ ] Season/episode policies, release-date policy, Maintainerr and Sonarr context
+- [x] Season/episode policies, release-date policy, Maintainerr and Sonarr context
 - [x] Plex upload/refresh and per-item failure recovery
 - [x] Import schema versioning, bounded archive validation, and safe asset extraction
 - [x] Logs, terminal metrics, job recovery, restart recovery and bounded concurrency

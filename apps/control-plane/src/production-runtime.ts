@@ -18,6 +18,7 @@ import {
 import { PlexCloudAuthProvider, PlexLoginService } from '@vynode/identity';
 import {
   IntegrationConfigurationService,
+  ImdbClient,
   MaintainerrClient,
   MDBListClient,
   MyAnimeListClient,
@@ -977,7 +978,43 @@ export const createProductionRuntime = async (
           ? secrets.get(configured.secretReference)
           : undefined;
       },
-      options.fetch
+      options.fetch,
+      new ImdbClient(),
+      async (signal) => {
+        const stored = await integrationRepository.get('maintainerr');
+        if (!stored?.configured) return [];
+        const apiKey = stored.secretReference ? await secrets.get(stored.secretReference) : undefined;
+        return new MaintainerrClient({
+          hostname: String(stored.values.hostname ?? ''),
+          port: Number(stored.values.port ?? 6246),
+          useSsl: Boolean(stored.values.useSsl),
+          urlBase: String(stored.values.urlBase ?? ''),
+          ...(apiKey ? { apiKey } : {}),
+        }).overlayData(signal);
+      },
+      async (item, signal) => {
+        const kind = item.mediaType === 'movie' ? 'radarr' : 'sonarr';
+        const configurations = await arrRepository.list(kind);
+        const labels = new Set<string>();
+        let found = false;
+        let monitored = false;
+        for (const configuration of configurations) {
+          const apiKey = await secrets.get(configuration.secretReference);
+          if (!apiKey) continue;
+          const client = new ArrTagSourceClient({ ...configuration.endpoint, apiKey });
+          for (const tag of await client.tags(signal)) {
+            const matches = await client.itemsForTag(tag.id, signal);
+            const match = matches.find((candidate) => item.mediaType === 'movie' ? candidate.tmdbId === item.tmdbId : candidate.tvdbId === item.tvdbId);
+            if (!match) continue;
+            found = true;
+            monitored ||= match.monitored === true;
+            labels.add(tag.label);
+          }
+        }
+        return item.mediaType === 'movie'
+          ? { inRadarr: found, isMonitored: monitored, radarrTags: [...labels] }
+          : { inSonarr: found, isMonitored: monitored, sonarrTags: [...labels] };
+      }
     );
     posterOverlays.connectOperations(overlayExecutor);
     const placeholderServices = new ProductionPlaceholderServices(

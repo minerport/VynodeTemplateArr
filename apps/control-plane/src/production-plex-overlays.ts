@@ -1,5 +1,5 @@
 import type { OverlayLibraryConfiguration, OverlayTemplateSummary, PosterOverlayTestResult, PosterTestSearchItem } from '@vynode/contracts';
-import { ImdbClient } from '@vynode/integrations';
+import { ImdbClient, type MaintainerrOverlayItem } from '@vynode/integrations';
 import { PlexManagementClient, type PlexHttpTransport, type PlexServerConfiguration } from '@vynode/media-servers';
 import {
   createFileBackedOverlayApplication,
@@ -32,6 +32,7 @@ const itemFromMetadata = (metadata: RecordValue, library: { key: string; title: 
   if (!ratingKey || !title) return undefined;
   const guids = records(metadata.Guid).map((value) => text(value.id));
   const tmdbId = guids.map((guid) => /^tmdb:\/\/(\d+)$/i.exec(guid)?.[1]).find(Boolean);
+  const tvdbId = guids.map((guid) => /^tvdb:\/\/(\d+)$/i.exec(guid)?.[1]).find(Boolean);
   const imdbId = guids.map((guid) => /^imdb:\/(\/)?(tt\d+)$/i.exec(guid)?.[2]).find(Boolean);
   const media = records(metadata.Media).map((entry) => {
     const part = records(entry.Part)[0];
@@ -64,6 +65,7 @@ const itemFromMetadata = (metadata: RecordValue, library: { key: string; title: 
     ratingKey, title, mediaType: library.type, libraryId: library.key, libraryName: library.title,
     ...(year !== undefined ? { year } : {}),
     ...(tmdbId ? { tmdbId: Number(tmdbId) } : {}),
+    ...(tvdbId ? { tvdbId: Number(tvdbId) } : {}),
     ...(imdbId ? { imdbId } : {}),
     ...(durationMs !== undefined ? { durationMs } : {}),
     ...(userRating !== undefined ? { userRating } : {}),
@@ -90,7 +92,9 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     private readonly plex: () => Promise<{ configured: PlexServerConfiguration; transport: PlexHttpTransport }>,
     private readonly tmdbApiKey: () => Promise<string | undefined>,
     private readonly fetchImplementation: typeof globalThis.fetch = globalThis.fetch,
-    imdbClient: Pick<ImdbClient, 'title'> = new ImdbClient()
+    imdbClient: Pick<ImdbClient, 'title'> = new ImdbClient(),
+    private readonly maintainerrItems: (signal?: AbortSignal) => Promise<readonly MaintainerrOverlayItem[]> = async () => [],
+    private readonly arrContext: (item: OverlayApplicationItem, signal?: AbortSignal) => Promise<Readonly<Record<string, string | number | boolean | readonly string[] | undefined>>> = async () => ({})
   ) {
     const imdbMetadataCache = new AdaptiveTtlCache<Awaited<ReturnType<ImdbClient['title']>>>({ minimumTtlMs: 15 * 60_000, initialTtlMs: 6 * 60 * 60_000, maximumTtlMs: 7 * 24 * 60 * 60_000, negativeTtlMs: 5 * 60_000 });
     const tmdbMetadataCache = new AdaptiveTtlCache<RecordValue>({ minimumTtlMs: 15 * 60_000, initialTtlMs: 6 * 60 * 60_000, maximumTtlMs: 7 * 24 * 60 * 60_000, negativeTtlMs: 5 * 60_000 });
@@ -146,7 +150,15 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
         };
       },
     };
-    this.#contexts = new OverlayContextBuilder([imdbProvider, tmdbProvider]);
+    const maintainerrProvider: OverlayContextProvider = {
+      name: 'Maintainerr', fields: new Set(['daysUntilAction']),
+      load: async (item, _fields, signal) => ({ daysUntilAction: (await this.maintainerrItems(signal)).find((candidate) => candidate.mediaId === item.ratingKey)?.daysRemaining }),
+    };
+    const arrProvider: OverlayContextProvider = {
+      name: 'Radarr/Sonarr', fields: new Set(['inRadarr','inSonarr','isMonitored','radarrTags','sonarrTags','downloaded']),
+      load: (item, _fields, signal) => this.arrContext(item as OverlayApplicationItem, signal),
+    };
+    this.#contexts = new OverlayContextBuilder([imdbProvider, tmdbProvider, maintainerrProvider, arrProvider]);
     const plexPoster = async (item: Pick<OverlayApplicationItem, 'ratingKey'>, signal?: AbortSignal) => this.posterFromPlex(item.ratingKey, signal);
     this.#application = createFileBackedOverlayApplication(dataDirectory, {
       acquisition: {
@@ -213,10 +225,24 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     const image = await this.fetchImplementation(`https://image.tmdb.org/t/p/original${path}`, signal ? { signal } : undefined); return image.ok ? new Uint8Array(await image.arrayBuffer()) : undefined;
   }
   async #runLibrary(library: OverlayLibraryConfiguration, signal: AbortSignal, reset = false): Promise<OverlayRunResult> {
-    const items = await this.#items(library.id, signal);
+    let items = await this.#items(library.id, signal);
+    if (library.type === 'show' && library.enableEpisodeScanning) {
+      const { transport } = await this.plex();
+      items = await Promise.all(items.map(async (item) => {
+        const episodes = containerMetadata(await transport.query(`/library/metadata/${encodeURIComponent(item.ratingKey)}/allLeaves?includeMedia=1`, signal));
+        const media = episodes.flatMap((episode) => itemFromMetadata(episode, { key: library.id, title: library.name, type: 'show' })?.media ?? []);
+        return { ...item, media };
+      }));
+    }
     if (reset) return this.#application.reset(items, signal);
     const workspace = await this.store.get(); const templates = workspace.templates.filter((template) => library.enabledTemplateIds.includes(template.id));
-    return this.#application.apply(items, templates, workspace.source.source, library.tmdbLanguage, signal);
+    const primary = await this.#application.apply(items, templates, workspace.source.source, library.tmdbLanguage, signal);
+    const seasonTemplates = templates.filter((template) => template.tags.some((tag) => tag.toLowerCase() === 'maintainerr') || template.condition?.sections.some((section) => section.rules.some((rule) => rule.field === 'daysUntilAction')));
+    if (library.type !== 'show' || !library.maintainerrSeasonOverlays || !seasonTemplates.length) return primary;
+    const seasonItems = (await Promise.all((await this.maintainerrItems(signal)).filter((candidate) => !candidate.libraryId || candidate.libraryId === library.id).map((candidate) => this.#item(candidate.mediaId, signal)))).filter((item): item is OverlayApplicationItem => Boolean(item));
+    if (!seasonItems.length) return primary;
+    const seasons = await this.#application.apply(seasonItems, seasonTemplates, 'plex', library.tmdbLanguage, signal);
+    return { items: [...primary.items, ...seasons.items], applied: primary.applied + seasons.applied, restored: primary.restored + seasons.restored, skipped: primary.skipped + seasons.skipped, failed: primary.failed + seasons.failed };
   }
   async #finish(id: string, result: OverlayRunResult, reset = false) { return this.store.updateLibraryRun(id, { status: result.failed ? 'error' : reset ? 'idle' : 'complete', operation: undefined, processedItems: result.items.length - result.failed, failedItems: result.failed, lastAppliedItems: result.applied, lastRestoredItems: result.restored, lastSkippedItems: result.skipped, lastNoMatchItems: result.skipped, lastAppliedAt: new Date().toISOString() }); }
   public async executeAll(signal: AbortSignal) {
