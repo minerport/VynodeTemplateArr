@@ -175,6 +175,38 @@ test('persists verified synchronization results and records failed runs', async 
   }
 });
 
+test('retains a created Plex identity when verification fails so retries cannot duplicate it', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'vynode-sync-identity-'));
+  try {
+    const storage = new VynodeSqliteStorage(join(directory, 'vynode.db'));
+    const observedKeys: Array<string | undefined> = [];
+    const surface = new ProductionCollectionSurface(
+      storage,
+      plex,
+      undefined,
+      async (collection, _signal, onPlexIdentity) => {
+        observedKeys.push(collection.plexRatingKey);
+        if (!collection.plexRatingKey) await onPlexIdentity?.('901');
+        throw new Error('Plex verification failed');
+      }
+    );
+    const saved = (await surface.save(undefined, draft('Retry safe')))!;
+
+    await assert.rejects(() => surface.synchronize(saved.id), /verification failed/);
+    let stored = (await surface.get()).collections[0]!;
+    assert.equal(stored.plexRatingKey, '901');
+    assert.equal(stored.status, 'error');
+
+    await assert.rejects(() => surface.synchronize(saved.id), /verification failed/);
+    stored = (await surface.get()).collections[0]!;
+    assert.deepEqual(observedKeys, [undefined, '901']);
+    assert.equal(stored.plexRatingKey, '901');
+    storage.close();
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('production Plex value generators create and persist one smart collection per value', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'vynode-generator-'));
   try {
@@ -229,6 +261,57 @@ test('production Plex value generators create and persist one smart collection p
         (item) => item.ratingKey
       ),
       ['800', '801']
+    );
+    storage.close();
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('generator retries reuse identities persisted before a later value fails', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'vynode-generator-retry-'));
+  try {
+    const storage = new VynodeSqliteStorage(join(directory, 'vynode.db'));
+    const surface = new ProductionCollectionSurface(storage, plex);
+    const observed: Array<readonly string[]> = [];
+    surface.connectLibraryGenerator(
+      async () => [{ value: '4k', label: '4K', count: 3 }],
+      async (collection, _values, _signal, onReference) => {
+        observed.push(
+          (collection.sourceSettings?.plexGenerator?.generatedCollections ?? []).map(
+            (reference) => reference.ratingKey
+          )
+        );
+        if (!observed.at(-1)?.length)
+          await onReference?.({ value: '4k', title: '4K Quality', ratingKey: '920' });
+        return { references: [], failures: ['later value failed'] };
+      }
+    );
+    const saved = (await surface.save(undefined, {
+      ...draft('Video Quality'),
+      sourceType: 'plex',
+      sourceSettings: {
+        subtype: 'resolutions',
+        maxItems: 50,
+        itemOrder: 'alphabetical',
+        plexGenerator: {
+          selectionMode: 'include',
+          selectedValues: [],
+          enabledRatingGroups: [],
+          titleTemplate: '{value} Quality',
+          cleanupMissing: true,
+        },
+      },
+    }))!;
+
+    await assert.rejects(() => surface.synchronize(saved.id), /later value failed/);
+    await assert.rejects(() => surface.synchronize(saved.id), /later value failed/);
+
+    assert.deepEqual(observed, [[], ['920']]);
+    assert.deepEqual(
+      (await surface.get()).collections[0]?.sourceSettings?.plexGenerator
+        ?.generatedCollections,
+      [{ value: '4k', title: '4K Quality', ratingKey: '920' }]
     );
     storage.close();
   } finally {

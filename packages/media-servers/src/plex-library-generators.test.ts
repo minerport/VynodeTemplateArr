@@ -3,7 +3,32 @@ import test from 'node:test';
 import {
   PlexLibraryGeneratorClient,
   contentRatingGroup,
+  selectGeneratorValues,
 } from './plex-library-generators.js';
+
+test('generator value selection honors include, exclude, and rating groups', () => {
+  const values = [
+    { value: '4k', label: '4K', count: 3 },
+    { value: '1080p', label: '1080p', count: 5 },
+    { value: 'tv-14', label: 'TV-14', count: 2, group: 'television' as const },
+  ];
+  assert.deepEqual(
+    selectGeneratorValues(values, {
+      selectionMode: 'include',
+      selectedValues: ['4k'],
+      enabledRatingGroups: [],
+    }).map((value) => value.value),
+    ['4k']
+  );
+  assert.deepEqual(
+    selectGeneratorValues(values, {
+      selectionMode: 'exclude',
+      selectedValues: ['4k'],
+      enabledRatingGroups: ['television'],
+    }).map((value) => value.value),
+    ['1080p', 'tv-14']
+  );
+});
 
 const response = {
   MediaContainer: {

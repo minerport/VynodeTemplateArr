@@ -40,6 +40,7 @@ import {
   PlexPersonCollectionClient,
   PlexServerConfigurationService,
   ProductionPlexServerProbe,
+  selectGeneratorValues,
 } from '@vynode/media-servers';
 import { OnboardingService } from '@vynode/onboarding';
 import {
@@ -551,7 +552,7 @@ export const createProductionRuntime = async (
       storage,
       () => plexServerRepository.get(),
       (collection, signal) => collectionPreview.preview(collection, signal),
-      async (collection, signal) => {
+      async (collection, signal, onPlexIdentity) => {
         const preview = await applyExclusions(
           collection,
           await collectionPreview.preview(collection, signal),
@@ -664,7 +665,7 @@ export const createProductionRuntime = async (
             verifiedServerName: configured.name,
             allowedMutationServerNames: new Set([configured.name]),
           })
-        ).synchronize(collection, desired, signal);
+        ).synchronize(collection, desired, signal, onPlexIdentity);
         return {
           plexRatingKey: report.plexRatingKey,
           itemCount: report.verifiedMemberKeys.length,
@@ -754,7 +755,7 @@ export const createProductionRuntime = async (
           allowedMutationServerNames: new Set([configured.name]),
         }).values(libraryId, mediaType, subtype, signal);
       },
-      async (collection, values, signal) => {
+      async (collection, values, signal, onReference) => {
         const { configured, transport } = await plexContext();
         const client = new PlexLibraryGeneratorClient({
           transport,
@@ -763,17 +764,7 @@ export const createProductionRuntime = async (
           allowedMutationServerNames: new Set([configured.name]),
         });
         const settings = collection.sourceSettings!.plexGenerator!;
-        const selected = new Set(
-          settings.selectedValues.length
-            ? settings.selectedValues
-            : values.map((value) => value.value)
-        );
-        const enabledGroups = new Set(settings.enabledRatingGroups);
-        const desired = values.filter(
-          (value) =>
-            selected.has(value.value) &&
-            (!value.group || enabledGroups.has(value.group))
-        );
+        const desired = selectGeneratorValues(values, settings);
         const previous = new Map(
           (settings.generatedCollections ?? []).map((value) => [
             value.value,
@@ -805,7 +796,7 @@ export const createProductionRuntime = async (
             previous.delete(value.value);
           }
           try {
-            references.push({
+            const reference = {
               value: value.value,
               title,
               ratingKey: await client.createSmart(
@@ -820,7 +811,9 @@ export const createProductionRuntime = async (
                 },
                 signal
               ),
-            });
+            };
+            references.push(reference);
+            await onReference?.(reference);
           } catch (error) {
             failures.push(
               `${title}: ${error instanceof Error ? error.message : String(error)}`
@@ -842,7 +835,7 @@ export const createProductionRuntime = async (
         return { references, failures };
       }
     );
-    collections.connectPersonGenerator(async (collection, signal) => {
+    collections.connectPersonGenerator(async (collection, signal, onReference) => {
       const { configured, transport } = await plexContext();
       const client = new PlexPersonCollectionClient({
         transport,
@@ -895,7 +888,7 @@ export const createProductionRuntime = async (
           previous.delete(key);
         }
         try {
-          references.push({
+          const reference = {
             value: person.name,
             title,
             ratingKey: await client.createSmart(
@@ -909,7 +902,9 @@ export const createProductionRuntime = async (
               },
               signal
             ),
-          });
+          };
+          references.push(reference);
+          await onReference?.(reference);
         } catch (error) {
           failures.push(
             `${person.name}: ${error instanceof Error ? error.message : String(error)}`

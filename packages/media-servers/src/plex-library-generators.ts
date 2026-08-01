@@ -70,6 +70,26 @@ export interface PlexLibraryGeneratorClientOptions {
   allowedMutationServerNames: ReadonlySet<string>;
 }
 
+export const selectGeneratorValues = (
+  values: readonly PlexLibraryGeneratorValue[],
+  settings: {
+    selectionMode: 'include' | 'exclude';
+    selectedValues: readonly string[];
+    enabledRatingGroups: readonly PlexContentRatingGroup[];
+  }
+): readonly PlexLibraryGeneratorValue[] => {
+  const selected = new Set(settings.selectedValues);
+  const enabledGroups = new Set(settings.enabledRatingGroups);
+  return values.filter((value) => {
+    const selectedByValue =
+      selected.size === 0 ||
+      (settings.selectionMode === 'include'
+        ? selected.has(value.value)
+        : !selected.has(value.value));
+    return selectedByValue && (!value.group || enabledGroups.has(value.group));
+  });
+};
+
 export class PlexLibraryGeneratorClient {
   public constructor(
     private readonly options: PlexLibraryGeneratorClientOptions

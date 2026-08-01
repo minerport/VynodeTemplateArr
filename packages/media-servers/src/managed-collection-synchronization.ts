@@ -44,7 +44,8 @@ export class ManagedCollectionSynchronizer {
   public async synchronize(
     collection: ManagedCollection,
     desiredMemberKeys: readonly string[],
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    onPlexIdentity?: (plexRatingKey: string) => Promise<void>
   ): Promise<ManagedCollectionSyncReport> {
     this.throwIfAborted(signal);
     const desired = [
@@ -79,6 +80,7 @@ export class ManagedCollectionSynchronizer {
         signal
       );
       created = true;
+      await onPlexIdentity?.(plexRatingKey);
     }
 
     this.throwIfAborted(signal);

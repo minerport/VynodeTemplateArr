@@ -82,7 +82,8 @@ export class ProductionCollectionSurface {
     ) => Promise<CollectionPreviewResult>,
     private readonly syncProvider?: (
       collection: ManagedCollection,
-      signal?: AbortSignal
+      signal?: AbortSignal,
+      onPlexIdentity?: (plexRatingKey: string) => Promise<void>
     ) => Promise<ProductionCollectionSyncResult>,
     private readonly now: () => Date = () => new Date(),
     private discoveryRepository?: PlexDiscoveryRepository,
@@ -108,14 +109,16 @@ export class ProductionCollectionSurface {
   private generatorSyncProvider?: (
     collection: ManagedCollection,
     values: readonly PlexLibraryGeneratorValue[],
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    onReference?: (reference: PlexGeneratedCollectionReference) => Promise<void>
   ) => Promise<{
     references: readonly PlexGeneratedCollectionReference[];
     failures: readonly string[];
   }>;
   private personSyncProvider?: (
     collection: ManagedCollection,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    onReference?: (reference: PlexGeneratedCollectionReference) => Promise<void>
   ) => Promise<{
     references: readonly PlexGeneratedCollectionReference[];
     failures: readonly string[];
@@ -521,7 +524,20 @@ export class ProductionCollectionSurface {
         const generated = await this.generatorSyncProvider(
           collection,
           values,
-          signal
+          signal,
+          async (reference) => {
+            await this.#mutate((state) => {
+              const item = state.collections.find((candidate) => candidate.id === id);
+              const generator = item?.sourceSettings?.plexGenerator;
+              if (!item || !generator) return;
+              generator.generatedCollections = [
+                ...(generator.generatedCollections ?? []).filter(
+                  (existing) => existing.value !== reference.value
+                ),
+                reference,
+              ];
+            });
+          }
         );
         if (generated.failures.length)
           throw new Error(
@@ -563,7 +579,24 @@ export class ProductionCollectionSurface {
           throw new Error(
             'Production Plex person collection generation is unavailable.'
           );
-        const generated = await this.personSyncProvider(collection, signal);
+        const generated = await this.personSyncProvider(
+          collection,
+          signal,
+          async (reference) => {
+            await this.#mutate((state) => {
+              const item = state.collections.find((candidate) => candidate.id === id);
+              if (!item?.sourceSettings) return;
+              item.sourceSettings.generatedPersonCollections = [
+                ...(item.sourceSettings.generatedPersonCollections ?? []).filter(
+                  (existing) =>
+                    existing.value.toLocaleLowerCase() !==
+                    reference.value.toLocaleLowerCase()
+                ),
+                reference,
+              ];
+            });
+          }
+        );
         if (generated.failures.length)
           throw new Error(
             `Plex person generator verification failed: ${generated.failures.join(', ')}.`
@@ -595,7 +628,15 @@ export class ProductionCollectionSurface {
         );
       const result = await this.syncProvider(
         structuredClone(collection),
-        signal
+        signal,
+        async (plexRatingKey) => {
+          await this.#mutate((state) => {
+            const item = state.collections.find(
+              (candidate) => candidate.id === id
+            );
+            if (item && !item.plexRatingKey) item.plexRatingKey = plexRatingKey;
+          });
+        }
       );
       if (result.failures.length)
         throw new Error(

@@ -1421,6 +1421,7 @@ const AllCollectionsPage = () => {
   const [discoveredUnlinkTarget, setDiscoveredUnlinkTarget] =
     useState<PlexDiscoveredItem>();
   const [cleanupMissingOpen, setCleanupMissingOpen] = useState(false);
+  const [showDiscoveredPlexItems, setShowDiscoveredPlexItems] = useState(false);
   const [busy, setBusy] = useState(false);
   const modalClose = useRef<HTMLButtonElement>(null);
   const load = async () => {
@@ -2078,6 +2079,15 @@ const AllCollectionsPage = () => {
               visibility, scheduling, and artwork without replacing their
               membership.
             </p>
+            <button
+              type="button"
+              className="button secondary"
+              aria-expanded={showDiscoveredPlexItems}
+              onClick={() => setShowDiscoveredPlexItems((current) => !current)}
+            >
+              {showDiscoveredPlexItems ? 'Hide' : 'Show'}{' '}
+              {data?.discoveredPlexItems?.length ?? 0} discovered Plex items
+            </button>
             {(data?.discoveredPlexItems?.filter((item) => item.missing)
               .length ?? 0) > 0 && (
               <button
@@ -2094,7 +2104,7 @@ const AllCollectionsPage = () => {
               </button>
             )}
           </div>
-          <div className="discovered-plex-list">
+          {showDiscoveredPlexItems && <div className="discovered-plex-list">
             {data?.discoveredPlexItems?.map((item) => (
               <article key={item.id}>
                 <span className="collection-poster">
@@ -2174,7 +2184,7 @@ const AllCollectionsPage = () => {
                 </span>
               </article>
             ))}
-          </div>
+          </div>}
         </section>
       )}
       <div className="collection-table">
@@ -5324,7 +5334,7 @@ export const MainApp = ({
         </nav>
         <div className="sidebar-version">
           <small>Serious test build</small>
-          <span>Vynode 0.1.0-rc.4</span>
+          <span>Vynode 0.1.0-rc.5</span>
         </div>
       </aside>
       <section className="main-content">

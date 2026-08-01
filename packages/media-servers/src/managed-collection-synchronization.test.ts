@@ -81,6 +81,39 @@ test('creates, reconciles, and verifies a managed collection', async () => {
   ]);
 });
 
+test('persists a newly created Plex identity before later verification can fail', async () => {
+  const events: string[] = [];
+  const synchronizer = new ManagedCollectionSynchronizer({
+    async create() {
+      events.push('create');
+      return '500';
+    },
+    async snapshot() {
+      events.push('snapshot');
+      throw new Error('temporary Plex verification failure');
+    },
+    async rename() {},
+    async addMembers() {
+      return { added: [], failures: [] };
+    },
+    async removeMembers() {
+      return { removed: [], failures: [] };
+    },
+    async reorderMembers() {
+      return { moved: [], failures: [] };
+    },
+  });
+
+  await assert.rejects(
+    synchronizer.synchronize(collection(), ['10'], undefined, async (key) => {
+      events.push(`persist:${key}`);
+    }),
+    /temporary Plex verification failure/
+  );
+
+  assert.deepEqual(events, ['create', 'persist:500', 'snapshot']);
+});
+
 test('rejects empty results, wrong libraries, and smart collections before membership mutation', async () => {
   const unused = async () => {
     assert.fail('membership mutation must not run');
