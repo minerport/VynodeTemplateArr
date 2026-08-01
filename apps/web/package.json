@@ -1,0 +1,34 @@
+{
+  "name": "@vynode/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "GPL-3.0-only",
+  "scripts": {
+    "build": "tsc -b && vite build",
+    "check": "tsc -b --pretty false",
+    "dev": "vite",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@vynode/contracts": "workspace:*",
+    "@vynode/media-servers": "workspace:*",
+    "@vynode/integrations": "workspace:*",
+    "@vynode/downloads": "workspace:*",
+    "@vynode/onboarding": "workspace:*",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0",
+    "vitest": "^4.1.0"
+  }
+}

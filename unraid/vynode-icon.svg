@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+  <title id="title">Vynode</title>
+  <rect width="256" height="256" rx="54" fill="#f5b642"/>
+  <path d="M53 55h43l32 111 32-111h43l-54 151h-42L53 55z" fill="#09151b"/>
+</svg>

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.preview/
+.vynode-dev/
+*.tsbuildinfo
+*.log
+release/*.tar
+release/*.tar.sha256

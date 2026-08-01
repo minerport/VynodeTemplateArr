@@ -1,0 +1,11 @@
+{
+  "schema": "vynode.source-colors",
+  "version": 1,
+  "sourceColors": {
+    "live-validation": {
+      "primaryColor": "#123456",
+      "secondaryColor": "#234567",
+      "textColor": "#ffffff"
+    }
+  }
+}

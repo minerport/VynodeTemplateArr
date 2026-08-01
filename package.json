@@ -1,0 +1,17 @@
+{
+  "name": "vynode",
+  "version": "0.1.0-rc.1",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "check": "pnpm -r check",
+    "test": "pnpm build && pnpm -r test",
+    "release:report": "node scripts/release-readiness.mjs --report",
+    "release:check": "node scripts/release-readiness.mjs"
+  }
+}

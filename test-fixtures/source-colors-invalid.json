@@ -1,0 +1,11 @@
+{
+  "schema": "vynode.source-colors",
+  "version": 99,
+  "sourceColors": {
+    "invalid provider name!": {
+      "primaryColor": "orange",
+      "secondaryColor": "#000000",
+      "textColor": "#ffffff"
+    }
+  }
+}
