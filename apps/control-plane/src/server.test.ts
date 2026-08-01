@@ -15,6 +15,7 @@ test('builds the production control plane with durable onboarding and redacted d
       VYNODE_PUBLIC_URL: 'http://127.0.0.1:7171',
       VYNODE_MASTER_KEY: masterKey,
       VYNODE_VERSION: '1.2.3',
+      VYNODE_LATEST_VERSION: '1.2.4',
       VYNODE_BUILD: 'test-build',
       VYNODE_COMMIT: 'abc123',
     });
@@ -30,6 +31,9 @@ test('builds the production control plane with durable onboarding and redacted d
     assert.equal(about.json().version, '1.2.3');
     assert.equal(about.json().build, 'test-build');
     assert.equal(about.json().commit, 'abc123');
+    assert.equal(about.json().updateAvailable, true);
+    assert.equal(about.json().latestVersion, '1.2.4');
+    assert.equal(about.json().sourceUrl, 'https://github.com/minerport/VynodeTemplateArr');
 
     const logs = await built.app.inject({ method: 'GET', url: '/api/settings/logs' });
     assert.equal(logs.statusCode, 200);

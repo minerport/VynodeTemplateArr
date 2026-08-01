@@ -16,12 +16,20 @@ RUN pnpm --filter @vynode/control-plane deploy --prod --legacy /deploy \
     && find /deploy/node_modules/.pnpm -path '*/node_modules/@vynode/*/dist/*.test.js.map' -type f -delete
 
 FROM node:24-alpine AS runtime
+ARG VYNODE_BUILD=github-actions
+ARG VYNODE_COMMIT=unknown
 LABEL org.opencontainers.image.title="Vynode" \
     org.opencontainers.image.version="0.1.0-rc.1" \
     org.opencontainers.image.licenses="GPL-3.0-only" \
     org.opencontainers.image.description="Self-hosted Plex collections, posters, overlays, watchlists, and missing-media management"
 ENV NODE_ENV=production \
     VYNODE_VERSION=0.1.0-rc.1 \
+    VYNODE_BUILD=$VYNODE_BUILD \
+    VYNODE_COMMIT=$VYNODE_COMMIT \
+    VYNODE_DOCUMENTATION_URL=https://github.com/minerport/VynodeTemplateArr/blob/main/README.md \
+    VYNODE_ISSUE_URL=https://github.com/minerport/VynodeTemplateArr/issues \
+    VYNODE_SOURCE_URL=https://github.com/minerport/VynodeTemplateArr \
+    VYNODE_RELEASE_API_URL=https://api.github.com/repos/minerport/VynodeTemplateArr/releases?per_page=10 \
     VYNODE_DATA_DIR=/var/lib/vynode \
     VYNODE_HOST=0.0.0.0 \
     VYNODE_PORT=7171 \

@@ -12,7 +12,27 @@ export const buildProductionControlPlane = async (
   const runtime=await createProductionRuntime(environment);
   try {
     const version = environment.VYNODE_VERSION?.trim() || '0.0.0';
-    const latestVersion = environment.VYNODE_LATEST_VERSION?.trim() || version;
+    const releaseApiUrl = environment.VYNODE_RELEASE_API_URL?.trim();
+    let releaseCache: { checkedAt: number; latestVersion: string; available: boolean } | undefined;
+    const releaseInformation = async () => {
+      const configuredLatest = environment.VYNODE_LATEST_VERSION?.trim();
+      if (configuredLatest) return { latestVersion: configuredLatest, available: true };
+      if (!releaseApiUrl) return { latestVersion: version, available: false };
+      if (releaseCache && Date.now() - releaseCache.checkedAt < 60 * 60 * 1000) return releaseCache;
+      try {
+        const response = await fetch(releaseApiUrl, {
+          headers: { accept: 'application/vnd.github+json', 'user-agent': `Vynode/${version}` },
+          signal: AbortSignal.timeout(5_000),
+        });
+        if (!response.ok) throw new Error(`Release check returned ${response.status}.`);
+        const releases = await response.json() as Array<{ tag_name?: string; draft?: boolean }>;
+        const latestVersion = releases.find((release) => !release.draft)?.tag_name?.replace(/^v/, '') || version;
+        releaseCache = { checkedAt: Date.now(), latestVersion, available: true };
+        return releaseCache;
+      } catch {
+        return { latestVersion: version, available: false };
+      }
+    };
     const platformNames: Partial<Record<NodeJS.Platform, string>> = {
       win32: 'Windows',
       darwin: 'macOS',
@@ -88,13 +108,14 @@ export const buildProductionControlPlane = async (
         },
       },
       async aboutInformation() {
+        const release = await releaseInformation();
         return {
           version,
           build: environment.VYNODE_BUILD?.trim() || 'production',
           commit: environment.VYNODE_COMMIT?.trim() || 'unknown',
-          updateAvailable: latestVersion !== version,
-          updateCheckAvailable: Boolean(environment.VYNODE_LATEST_VERSION?.trim()),
-          latestVersion,
+          updateAvailable: release.latestVersion !== version,
+          updateCheckAvailable: release.available,
+          latestVersion: release.latestVersion,
           restartRequired: environment.VYNODE_RESTART_REQUIRED === 'true',
           nodeVersion: process.version,
           platform: platformNames[process.platform] ?? process.platform,
@@ -102,9 +123,9 @@ export const buildProductionControlPlane = async (
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           appDataPath: runtime.configuration.dataDirectory,
           uptimeSeconds: Math.floor(process.uptime()),
-          ...(environment.VYNODE_DOCUMENTATION_URL?.trim() ? { documentationUrl: environment.VYNODE_DOCUMENTATION_URL.trim() } : {}),
-          ...(environment.VYNODE_ISSUE_URL?.trim() ? { issueUrl: environment.VYNODE_ISSUE_URL.trim() } : {}),
-          ...(environment.VYNODE_SOURCE_URL?.trim() ? { sourceUrl: environment.VYNODE_SOURCE_URL.trim() } : {}),
+          documentationUrl: environment.VYNODE_DOCUMENTATION_URL?.trim() || 'https://github.com/minerport/VynodeTemplateArr/blob/main/README.md',
+          issueUrl: environment.VYNODE_ISSUE_URL?.trim() || 'https://github.com/minerport/VynodeTemplateArr/issues',
+          sourceUrl: environment.VYNODE_SOURCE_URL?.trim() || 'https://github.com/minerport/VynodeTemplateArr',
           license: 'GPL-3.0-only',
         };
       },
