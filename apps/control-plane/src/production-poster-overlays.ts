@@ -24,6 +24,7 @@ interface StoredOverlayLibrary {
   status?: OverlayLibraryConfiguration['status'];
   processedItems?: number;
   failedItems?: number;
+  operation?: OverlayLibraryConfiguration['operation'];
   lastAppliedItems?: number;
   lastRestoredItems?: number;
   lastSkippedItems?: number;
@@ -117,8 +118,10 @@ export class ProductionPosterOverlayStore {
       .filter((library) => library.available && (library.type === 'movie' || library.type === 'show'))
       .map((library) => {
         const saved = state.libraries.find((item) => item.id === library.key) ?? storedLibrary(library.key);
+        const { operation, ...savedValues } = saved;
         return {
-          ...saved,
+          ...savedValues,
+          ...(operation ? { operation } : {}),
           name: library.title,
           type: library.type as 'movie' | 'show',
           maintainerrConfigured,

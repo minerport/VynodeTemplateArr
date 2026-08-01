@@ -1058,6 +1058,7 @@ export interface OverlayLibraryConfiguration {
     | 'error';
   processedItems: number;
   failedItems: number;
+  operation?: 'apply' | 'reset' | 'download-base-posters';
   lastAppliedItems?: number;
   lastRestoredItems?: number;
   lastSkippedItems?: number;

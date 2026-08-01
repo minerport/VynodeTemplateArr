@@ -218,13 +218,13 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     const workspace = await this.store.get(); const templates = workspace.templates.filter((template) => library.enabledTemplateIds.includes(template.id));
     return this.#application.apply(items, templates, workspace.source.source, library.tmdbLanguage, signal);
   }
-  async #finish(id: string, result: OverlayRunResult, reset = false) { return this.store.updateLibraryRun(id, { status: result.failed ? 'error' : reset ? 'idle' : 'complete', processedItems: result.items.length - result.failed, failedItems: result.failed, lastAppliedItems: result.applied, lastRestoredItems: result.restored, lastSkippedItems: result.skipped, lastNoMatchItems: result.skipped, lastAppliedAt: new Date().toISOString() }); }
+  async #finish(id: string, result: OverlayRunResult, reset = false) { return this.store.updateLibraryRun(id, { status: result.failed ? 'error' : reset ? 'idle' : 'complete', operation: undefined, processedItems: result.items.length - result.failed, failedItems: result.failed, lastAppliedItems: result.applied, lastRestoredItems: result.restored, lastSkippedItems: result.skipped, lastNoMatchItems: result.skipped, lastAppliedAt: new Date().toISOString() }); }
   public async executeAll(signal: AbortSignal) {
     const libraries = (await this.store.get()).libraries;
     let applied = 0, restored = 0, skipped = 0, failed = 0;
     for (const library of libraries) {
       signal.throwIfAborted();
-      await this.store.updateLibraryRun(library.id, { status: 'processing', processedItems: 0, failedItems: 0 });
+      await this.store.updateLibraryRun(library.id, { status: 'processing', operation: 'apply', processedItems: 0, failedItems: 0 });
       const result = await this.#runLibrary(library, signal);
       await this.#finish(library.id, result);
       applied += result.applied; restored += result.restored; skipped += result.skipped; failed += result.failed;
@@ -233,7 +233,7 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
   }
   async startLibraryJob(id: string) {
     const library = (await this.store.get()).libraries.find((value) => value.id === id); if (!library || this.#controllers.has(id)) return undefined;
-    const controller = new AbortController(); this.#controllers.set(id, controller); await this.store.updateLibraryRun(id, { status: 'processing', processedItems: 0, failedItems: 0 });
+    const controller = new AbortController(); this.#controllers.set(id, controller); await this.store.updateLibraryRun(id, { status: 'processing', operation: 'apply', processedItems: 0, failedItems: 0 });
     void this.#runLibrary(library, controller.signal).then((result) => this.#finish(id, result)).catch((error) => this.store.updateLibraryRun(id, { status: controller.signal.aborted ? 'idle' : 'error', failedItems: controller.signal.aborted ? 0 : 1 })).finally(() => this.#controllers.delete(id));
     return this.store.get();
   }
@@ -244,11 +244,18 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     for (const library of workspace.libraries) {
       const controller = new AbortController();
       this.#controllers.set(library.id, controller);
-      await this.store.updateLibraryRun(library.id, { status: 'processing', processedItems: 0, failedItems: 0 });
+      await this.store.updateLibraryRun(library.id, { status: 'processing', operation: 'download-base-posters', processedItems: 0, failedItems: 0 });
       void this.#items(library.id, controller.signal)
-        .then((items) => this.#application.downloadCleanPlexBases(items, controller.signal))
+        .then((items) => this.#application.downloadCleanPlexBases(
+          items,
+          controller.signal,
+          (completed, failed) => this.store.updateLibraryRun(library.id, {
+            processedItems: completed - failed,
+            failedItems: failed,
+          }).then(() => undefined)
+        ))
         .then((result) => this.store.updateLibraryRun(library.id, {
-          status: result.failed ? 'error' : 'complete',
+          status: result.failed ? 'error' : 'complete', operation: undefined,
           processedItems: result.downloaded,
           failedItems: result.failed,
           lastAppliedItems: 0,
@@ -266,7 +273,7 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     return this.store.get();
   }
   async cancelLibraryJob(id: string) { const controller = this.#controllers.get(id); if (!controller) return undefined; controller.abort(); await this.store.updateLibraryRun(id, { status: 'cancelling' }); return this.store.get(); }
-  async resetLibrary(id: string) { const library = (await this.store.get()).libraries.find((value) => value.id === id); if (!library || this.#controllers.has(id)) return undefined; const controller = new AbortController(); this.#controllers.set(id, controller); await this.store.updateLibraryRun(id, { status: 'processing' }); void this.#runLibrary(library, controller.signal, true).then((result) => this.#finish(id, result, true)).catch(() => this.store.updateLibraryRun(id, { status: controller.signal.aborted ? 'idle' : 'error', failedItems: controller.signal.aborted ? 0 : 1 })).finally(() => this.#controllers.delete(id)); return this.store.get(); }
+  async resetLibrary(id: string) { const library = (await this.store.get()).libraries.find((value) => value.id === id); if (!library || this.#controllers.has(id)) return undefined; const controller = new AbortController(); this.#controllers.set(id, controller); await this.store.updateLibraryRun(id, { status: 'processing', operation: 'reset' }); void this.#runLibrary(library, controller.signal, true).then((result) => this.#finish(id, result, true)).catch(() => this.store.updateLibraryRun(id, { status: controller.signal.aborted ? 'idle' : 'error', operation: undefined, failedItems: controller.signal.aborted ? 0 : 1 })).finally(() => this.#controllers.delete(id)); return this.store.get(); }
   async searchItems(query: string, libraryId?: string): Promise<readonly PosterTestSearchItem[]> { const workspace = await this.store.get(); const normalized = query.trim().toLowerCase(); const results: PosterTestSearchItem[] = []; for (const library of workspace.libraries.filter((value) => !libraryId || value.id === libraryId)) for (const item of await this.#items(library.id)) { if (normalized && !item.title.toLowerCase().includes(normalized)) continue; results.push({ ratingKey: item.ratingKey, title: item.title, ...(item.year ? { year: item.year } : {}), type: item.mediaType, libraryId: item.libraryId, libraryName: item.libraryName, posterUrl: `/api/posters/overlays/items/${encodeURIComponent(item.ratingKey)}/poster` }); if (results.length >= 50) return results; } return results; }
   async posterForItem(ratingKey: string) { return (await this.#application.preservedBasePoster(ratingKey)) ?? this.posterFromPlex(ratingKey); }
   async testItem(ratingKey: string): Promise<PosterOverlayTestResult | undefined> { const item = await this.#item(ratingKey); if (!item) return undefined; const workspace = await this.store.get(); const built = await this.#contexts.build(item, workspace.templates); return { item: { ratingKey: item.ratingKey, title: item.title, ...(item.year ? { year: item.year } : {}), type: item.mediaType, libraryId: item.libraryId, libraryName: item.libraryName }, templates: workspace.templates.map((template: OverlayTemplateSummary) => ({ id: template.id, name: template.name, matched: template.enabled && evaluateOverlayConditionDetailed(template.condition, built.context).matched, conditionSummary: template.conditionSummary })), context: Object.fromEntries(Object.entries(built.context).filter(([, value]) => value !== undefined).map(([key, value]) => [key, value instanceof Date ? value.toISOString() : Array.isArray(value) ? value.join(', ') : value as string | number | boolean])), errors: built.warnings.map((warning) => `${warning.provider}: ${warning.message}`) }; }

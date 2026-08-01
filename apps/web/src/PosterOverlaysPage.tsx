@@ -79,6 +79,14 @@ export const PosterOverlaysPage = () => {
     () => workspace?.templates.filter((template) => !hideInactive || template.enabled) ?? [],
     [workspace, hideInactive]
   );
+  const baseDownloadProgress = useMemo(() => {
+    const active = workspace?.libraries.some((library) => library.operation === 'download-base-posters');
+    if (!active || !workspace) return undefined;
+    const downloading = workspace.libraries.filter((library) => library.operation === 'download-base-posters');
+    const total = downloading.reduce((sum, library) => sum + library.itemCount, 0);
+    const completed = downloading.reduce((sum, library) => sum + library.processedItems + library.failedItems, 0);
+    return { total, completed, percent: total ? Math.round((completed / total) * 100) : 0 };
+  }, [workspace]);
   useEffect(() => {
     if (!workspace?.libraries.some((library) => ['queued', 'processing', 'cancelling'].includes(library.status))) return;
     const timer = window.setInterval(() => void load(), 800);
@@ -285,6 +293,7 @@ export const PosterOverlaysPage = () => {
         </div>
       </section>
       {message && <p className="source-feedback" role="status">{message}</p>}
+      {baseDownloadProgress && <section className="source-feedback" role="status" aria-live="polite"><strong>Downloading clean Plex base posters</strong><p>{baseDownloadProgress.completed} of {baseDownloadProgress.total} processed ({baseDownloadProgress.percent}%). Downloads continue in the background; use Stop safely on a library to cancel it.</p><progress max={Math.max(1, baseDownloadProgress.total)} value={baseDownloadProgress.completed}>{baseDownloadProgress.percent}%</progress></section>}
       {view === 'templates' ? (
         <>
           <section className="poster-filterbar">

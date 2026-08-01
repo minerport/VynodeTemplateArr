@@ -209,7 +209,8 @@ export class OverlayApplicationService {
 
   public downloadCleanPlexBases(
     items: readonly OverlayApplicationItem[],
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    onProgress?: (completed: number, failed: number, total: number) => void | Promise<void>
   ): Promise<BasePosterDownloadResult> {
     return this.coordinator.run('download-base-posters', async () => {
       const results: OverlayItemResult[] = [];
@@ -241,6 +242,11 @@ export class OverlayApplicationService {
             reason: error instanceof Error ? error.message : String(error),
           });
         }
+        await onProgress?.(
+          results.length,
+          results.filter((result) => result.status === 'failed').length,
+          items.length
+        );
       }
       return {
         items: results,
