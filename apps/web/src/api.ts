@@ -329,6 +329,7 @@ export const api = {
   about: () => request<AboutInformation>('/api/settings/about'),
   posterOverlays: () =>
     request<PosterOverlayWorkspace>('/api/posters/overlays'),
+  overlayPlexLabels: () => request<readonly string[]>('/api/posters/overlays/condition-values/plex-labels'),
   saveOverlayTemplate: (id: string | undefined, input: Omit<OverlayTemplateSummary, 'id' | 'displayOrder' | 'elementCount'>) =>
     request<PosterOverlayWorkspace>(id ? `/api/posters/overlays/templates/${encodeURIComponent(id)}` : '/api/posters/overlays/templates', { method: id ? 'PUT' : 'POST', body: JSON.stringify(input) }),
   importAgregarrOverlayTemplate: (file: File) => {

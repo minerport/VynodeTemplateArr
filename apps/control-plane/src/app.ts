@@ -621,6 +621,7 @@ export interface ControlPlaneDependencies {
     testItem?(ratingKey: string): Promise<PosterOverlayTestResult | undefined>;
     applyItem?(ratingKey: string): Promise<PosterOverlayWorkspace | undefined>;
     resetItem?(ratingKey: string): Promise<PosterOverlayWorkspace | undefined>;
+    plexLabels?(): Promise<readonly string[]>;
     saveTemplate?(
       id: string | undefined,
       input: Omit<
@@ -1114,6 +1115,10 @@ export const createControlPlane = async (
       return reply.header('content-type', 'application/zip').header('content-disposition', `attachment; filename="${safeName}.vynode-overlay.zip"`).send(bytes);
     }
   );
+  app.get('/api/posters/overlays/condition-values/plex-labels', async (_request, reply) => {
+    if (!dependencies.posterOverlays?.plexLabels) return reply.code(503).send({ message: 'Plex label discovery is unavailable.' });
+    return dependencies.posterOverlays.plexLabels();
+  });
   app.get<{ Params: { id: string } }>(
     '/api/posters/collections/saved/:id/download',
     async (request, reply) => {

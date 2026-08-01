@@ -196,6 +196,16 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     const normalized = /^https?:/.test(thumb) ? `${new URL(thumb).pathname}${new URL(thumb).search}` : thumb;
     return transport.queryBinary(`/photo/:/transcode?${new URLSearchParams({ url: normalized, width: '1000', height: '1500', minSize: '1', upscale: '1' })}`, signal);
   }
+  async plexLabels(): Promise<readonly string[]> {
+    const { configured, transport } = await this.plex();
+    const labels = new Set<string>();
+    for (const library of configured.libraries.filter((item) => item.available && (item.type === 'movie' || item.type === 'show'))) {
+      const metadata = containerMetadata(await transport.query(`/library/sections/${encodeURIComponent(library.key)}/all?includeLabels=1`));
+      for (const item of metadata)
+        for (const label of records(item.Label).map((entry) => text(entry.tag).trim()).filter(Boolean)) labels.add(label);
+    }
+    return [...labels].sort((left, right) => left.localeCompare(right));
+  }
   async posterFromTmdb(item: OverlayApplicationItem, language: string, signal?: AbortSignal) {
     if (!item.tmdbId) return undefined; const apiKey = await this.tmdbApiKey(); if (!apiKey) return undefined;
     const response = await this.fetchImplementation(`https://api.themoviedb.org/3/${item.mediaType === 'movie' ? 'movie' : 'tv'}/${item.tmdbId}?${new URLSearchParams({ api_key: apiKey, language })}`, signal ? { signal } : undefined);

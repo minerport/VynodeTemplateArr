@@ -354,6 +354,13 @@ export const OverlayTemplateEditor = ({
   }, []);
   useEffect(() => {
     let active = true;
+    void api.overlayPlexLabels().then((labels) => {
+      if (active) setConditionValueOptions((current) => ({ ...current, plexLabels: [...labels] }));
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    let active = true;
     void Promise.all((['radarr', 'sonarr'] as const).map(async (kind) => {
       const servers = await api.collectionArrServers(kind).catch(() => []);
       const tags = await Promise.all(servers.map((server) => api.collectionArrTags(server.id).catch(() => [])));
