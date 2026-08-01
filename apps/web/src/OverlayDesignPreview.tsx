@@ -273,6 +273,19 @@ export const OverlayDesignPreview = ({
             );
           }
           if ((layer.type === 'raster' || layer.type === 'svg') && assetId) {
+            if (layer.type === 'svg' && layer.properties.svgFillEnabled === true) {
+              const strokeWidth = Number(layer.properties.svgStrokeWidth ?? 0);
+              const strokeColor = String(layer.properties.svgStrokeColor ?? '#000000');
+              return <span key={layer.id} data-layer-id={layer.id} data-layer-type={layer.type} style={{
+                ...style,
+                opacity: Number(layer.properties.opacity ?? 100) / 100,
+                backgroundColor: String(layer.properties.svgFillColor ?? '#ffffff'),
+                WebkitMaskImage: `url("${assetUrl(assetId)}")`, maskImage: `url("${assetUrl(assetId)}")`,
+                WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskPosition: 'center',
+                WebkitMaskSize: 'contain', maskSize: 'contain',
+                filter: strokeWidth > 0 ? `drop-shadow(${strokeWidth / 4}px 0 ${strokeColor}) drop-shadow(${-strokeWidth / 4}px 0 ${strokeColor}) drop-shadow(0 ${strokeWidth / 4}px ${strokeColor}) drop-shadow(0 ${-strokeWidth / 4}px ${strokeColor})` : undefined,
+              }} />;
+            }
             return (
               <img
                 key={layer.id}

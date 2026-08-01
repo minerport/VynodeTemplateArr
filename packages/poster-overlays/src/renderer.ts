@@ -614,8 +614,26 @@ export class NativeOverlayRenderer {
             });
             if (layer.type === 'svg' && layer.properties.grayscale === true)
               pipeline = pipeline.grayscale().tint('#ffffff');
+            if (layer.type === 'svg' && layer.properties.svgFillEnabled === true)
+              pipeline = pipeline.grayscale().tint(color(string(layer, 'svgFillColor', '#ffffff'), '#ffffff'));
             const opacity = number(layer, 'opacity', 100, 0, 100) / 100;
-            const rendered = await pipeline.png().toBuffer();
+            let rendered = await pipeline.png().toBuffer();
+            if (layer.type === 'svg') {
+              const outlineWidth = Math.round(number(layer, 'svgStrokeWidth', 0, 0, 40));
+              if (outlineWidth > 0) {
+                const metadata = await sharp(rendered).metadata();
+                const mask = await sharp(rendered).ensureAlpha().extractChannel(3).dilate(outlineWidth).toBuffer();
+                const outline = await sharp({
+                  create: {
+                    width: metadata.width ?? placement.width,
+                    height: metadata.height ?? placement.height,
+                    channels: 3,
+                    background: color(string(layer, 'svgStrokeColor', '#000000'), '#000000'),
+                  },
+                }).joinChannel(mask).png().toBuffer();
+                rendered = await sharp(outline).composite([{ input: rendered }]).png().toBuffer();
+              }
+            }
             input = Buffer.from(
               `<svg xmlns="http://www.w3.org/2000/svg" width="${placement.width}" height="${placement.height}"><image href="data:image/png;base64,${rendered.toString('base64')}" width="${placement.width}" height="${placement.height}" preserveAspectRatio="xMidYMid meet" opacity="${opacity}"/></svg>`
             );

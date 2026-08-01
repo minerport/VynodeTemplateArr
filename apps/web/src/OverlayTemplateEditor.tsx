@@ -1389,7 +1389,7 @@ export const OverlayTemplateEditor = ({
                       </button>
                     </div>
                     {selected.type === 'svg' && (
-                      <label>
+                      <><label>
                         <input
                           type="checkbox"
                           checked={Boolean(selected.properties.grayscale)}
@@ -1399,6 +1399,9 @@ export const OverlayTemplateEditor = ({
                         />{' '}
                         Grayscale
                       </label>
+                      <label className="inline-check"><input type="checkbox" checked={selected.properties.svgFillEnabled === true} onChange={(e) => updateLayer({}, { svgFillEnabled: e.target.checked })} />Override SVG fill</label>
+                      {selected.properties.svgFillEnabled === true && <label>Fill color<input type="color" value={String(selected.properties.svgFillColor ?? '#ffffff')} onChange={(e) => updateLayer({}, { svgFillColor: e.target.value })} /></label>}
+                      <div className="two-field"><label>Outline color<input type="color" value={String(selected.properties.svgStrokeColor ?? '#000000')} onChange={(e) => updateLayer({}, { svgStrokeColor: e.target.value })} /></label><label>Outline width<input type="number" min="0" max="40" value={Number(selected.properties.svgStrokeWidth ?? 0)} onChange={(e) => updateLayer({}, { svgStrokeWidth: Number(e.target.value) })} /></label></div></>
                     )}
                     {selected.type === 'raster' && (
                       <label>
