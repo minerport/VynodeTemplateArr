@@ -84,7 +84,7 @@ This registry is the implementation checklist for the complete poster subsystem.
 ## Saved collection posters and collection form integration
 
 - [x] Saved poster cards and generated preview
-- [ ] Edit metadata, duplicate, download/export, and guarded delete (edit, duplicate, and guarded deletion implemented; binary download/export pending)
+- [x] Edit metadata, duplicate, native WebP download/export, and guarded delete
 - [x] Single and bulk in-use dialogs naming affected collections
 - [x] Collection form upload: file picker, JPEG/PNG/WebP and 10 MB validation, preview, replace/remove
 - [x] Collection form selection popover: saved poster selection, upload, and link to poster creation

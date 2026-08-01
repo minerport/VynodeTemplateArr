@@ -1116,6 +1116,13 @@ export const CollectionPostersPage = () => {
                       </button>
                     </>
                   )}
+                  <a
+                    className="text-button"
+                    href={`/api/posters/collections/saved/${encodeURIComponent(poster.id)}/download`}
+                    download
+                  >
+                    Download
+                  </a>
                   <button
                     type="button"
                     className="danger-text"

@@ -657,6 +657,7 @@ export interface ControlPlaneDependencies {
       }
     ): Promise<CollectionPosterWorkspace>;
     duplicatePoster(id: string): Promise<CollectionPosterWorkspace | undefined>;
+    renderPoster?(id: string): Promise<{ name: string; bytes: Uint8Array } | undefined>;
     deletePosters(
       ids: readonly string[],
       force: boolean
@@ -1066,6 +1067,21 @@ export const createControlPlane = async (
         result ??
         reply.code(404).send({ message: 'Overlay template was not found.' })
       );
+    }
+  );
+  app.get<{ Params: { id: string } }>(
+    '/api/posters/collections/saved/:id/download',
+    async (request, reply) => {
+      if (!dependencies.collectionPosters?.renderPoster)
+        return reply.code(503).send({ message: 'Saved-poster rendering is unavailable.' });
+      const result = await dependencies.collectionPosters.renderPoster(request.params.id);
+      if (!result)
+        return reply.code(404).send({ message: 'Saved poster was not found.' });
+      const fileName = `${result.name.replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '') || 'collection-poster'}.webp`;
+      return reply
+        .header('content-type', 'image/webp')
+        .header('content-disposition', `attachment; filename="${fileName}"`)
+        .send(Buffer.from(result.bytes));
     }
   );
   app.delete<{ Params: { id: string } }>(

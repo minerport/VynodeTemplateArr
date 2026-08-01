@@ -32,6 +32,9 @@ test('persists production collection posters and editor assets across restarts',
 
     workspace = await store.savePoster(undefined, { name: 'Saved poster', description: 'Reusable artwork', design });
     const posterId = workspace.savedPosters[0]!.id;
+    const exported = await store.renderPoster(posterId);
+    assert.equal(exported?.name, 'Saved poster');
+    assert.equal(new TextDecoder().decode(exported?.bytes.slice(0, 4)), 'RIFF');
     workspace = (await store.duplicatePoster(posterId))!;
     assert.equal(workspace.savedPosters.length, 2);
 

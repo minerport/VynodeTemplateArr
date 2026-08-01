@@ -7159,6 +7159,24 @@ const app = await createControlPlane({
       };
       return collectionPosterWorkspace;
     },
+    async renderPoster(id) {
+      const poster = collectionPosterWorkspace.savedPosters.find((item) => item.id === id);
+      if (!poster) return undefined;
+      const renderer = new NativeCollectionPosterRenderer({
+        assets: {
+          async resolve(assetId) {
+            const stored = await posterEditorAssetStore.read(assetId);
+            if (!stored) throw new Error('A required poster asset is unavailable.');
+            return stored.bytes;
+          },
+        },
+      });
+      const rendered = await renderer.render(poster.design, {
+        title: poster.name,
+        sourceColors: collectionPosterWorkspace.sourceColors,
+      });
+      return { name: poster.name, bytes: rendered.bytes };
+    },
     async deletePosters(ids, force) {
       const blocked = collectionPosterWorkspace.savedPosters.filter(
         (item) => ids.includes(item.id) && item.usedBy.length

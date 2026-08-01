@@ -7,7 +7,7 @@ import type {
   PosterEditorAsset,
   SourceColorScheme,
 } from '@vynode/contracts';
-import { FilePosterEditorAssetStore } from '@vynode/poster-overlays';
+import { FilePosterEditorAssetStore, NativeCollectionPosterRenderer } from '@vynode/poster-overlays';
 import { SqliteJsonRepository, type VynodeSqliteStorage } from '@vynode/storage';
 
 type PosterInput = { name: string; description: string; design: CollectionPosterDesign };
@@ -89,6 +89,26 @@ export class ProductionCollectionPosterStore {
       const timestamp = this.now().toISOString();
       state.savedPosters = [...state.savedPosters, { ...source, id: `poster-${randomUUID().slice(0, 8)}`, name: `${source.name} Copy`, usedBy: [], isEditable: true, createdAt: timestamp, updatedAt: timestamp }];
     });
+  }
+
+  public async renderPoster(id: string): Promise<{ name: string; bytes: Uint8Array } | undefined> {
+    const workspace = await this.get();
+    const poster = workspace.savedPosters.find((item) => item.id === id);
+    if (!poster) return undefined;
+    const renderer = new NativeCollectionPosterRenderer({
+      assets: {
+        resolve: async (assetId) => {
+          const stored = await this.#assets.read(assetId);
+          if (!stored) throw new Error('A required poster asset is unavailable.');
+          return stored.bytes;
+        },
+      },
+    });
+    const result = await renderer.render(poster.design, {
+      title: poster.name,
+      sourceColors: workspace.sourceColors,
+    });
+    return { name: poster.name, bytes: result.bytes };
   }
 
   public async deletePosters(ids: readonly string[], force: boolean) {
