@@ -337,6 +337,7 @@ export const OverlayTemplateEditor = ({
   const [collectionOptions, setCollectionOptions] = useState<
     { id: string; title: string; libraryName: string }[]
   >([]);
+  const [conditionValueOptions, setConditionValueOptions] = useState<Record<string, string[]>>({});
   useEffect(() => {
     void api
       .collections()
@@ -350,6 +351,15 @@ export const OverlayTemplateEditor = ({
         )
       )
       .catch(() => setCollectionOptions([]));
+  }, []);
+  useEffect(() => {
+    let active = true;
+    void Promise.all((['radarr', 'sonarr'] as const).map(async (kind) => {
+      const servers = await api.collectionArrServers(kind).catch(() => []);
+      const tags = await Promise.all(servers.map((server) => api.collectionArrTags(server.id).catch(() => [])));
+      return [kind === 'radarr' ? 'radarrTags' : 'sonarrTags', [...new Set(tags.flat().map((tag) => tag.label))].sort()] as const;
+    })).then((entries) => { if (active) setConditionValueOptions(Object.fromEntries(entries)); });
+    return () => { active = false; };
   }, []);
   useEffect(() => {
     void api
@@ -1513,6 +1523,7 @@ export const OverlayTemplateEditor = ({
                           field={rule.field}
                           value={rule.value}
                           collections={collectionOptions}
+                          options={conditionValueOptions[rule.field] ?? []}
                           onChange={(value) => updateRule(si, ri, { value })}
                         />
                       )}
@@ -3905,11 +3916,13 @@ const ConditionValueInput = ({
   field,
   value,
   collections,
+  options,
   onChange,
 }: {
   field: string;
   value: any;
   collections: { id: string; title: string; libraryName: string }[];
+  options: readonly string[];
   onChange(value: string | number | boolean): void;
 }) => {
   if (booleanFields.has(field))
@@ -3962,11 +3975,13 @@ const ConditionValueInput = ({
         <option value="SD">SD</option>
       </select>
     );
+  const listId = options.length ? `condition-values-${field}` : undefined;
   return (
-    <input
+    <><input
       aria-label={`${field} value`}
       type={numericFields.has(field) ? 'number' : 'text'}
       value={String(value ?? '')}
+      list={listId}
       placeholder={
         ['radarrTags', 'sonarrTags'].includes(field)
           ? 'Select or enter tag…'
@@ -3979,6 +3994,6 @@ const ConditionValueInput = ({
           numericFields.has(field) ? Number(e.target.value) : e.target.value
         )
       }
-    />
+    />{listId && <datalist id={listId}>{options.map((option) => <option key={option} value={option} />)}</datalist>}</>
   );
 };

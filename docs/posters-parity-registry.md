@@ -44,7 +44,7 @@ This registry is the implementation checklist for the complete poster subsystem.
 - [x] Raster image: upload/asset selection, contain/cover/fill fit, opacity, rotation, sizing and position
 - [x] SVG: built-in/custom asset, fill override, outline, grayscale, opacity, rotation, sizing and position
 - [x] Mapped icon: source variable, default icon, value-to-icon mappings, add/edit/remove mapping, layout, sizing, spacing, limits, and grid columns
-- [ ] Application conditions: AND/OR sections, add/remove section and rule, operators, typed values, tags, labels, collections (full field list and typed boolean/numeric/media/resolution/live-collection inputs implemented; connected tag/label discovery pending)
+- [ ] Application conditions: AND/OR sections, add/remove section and rule, operators, typed values, tags, labels, collections (full typed inputs, live collections, and connected Radarr/Sonarr tag discovery implemented; Plex label discovery pending)
 - [x] Preview selection with other overlays and saved layer render order
 - [x] Server validation, unsaved-changes warning for close/Escape/navigation, save error recovery, cancel, and versioned JSON import/export fidelity
 
