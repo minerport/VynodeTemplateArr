@@ -1,4 +1,5 @@
 import type { CollectionAssetReference, CollectionDraft, CollectionMetadataSettings } from '@vynode/contracts';
+import { createClientId } from './clientId';
 
 export const defaultCollectionMetadata: CollectionMetadataSettings = {
   enableCustomSummary: false,
@@ -26,7 +27,7 @@ export function CollectionMetadataFields({ draft, onChange, onMessage }: { draft
     const reader = new FileReader();
     reader.onload = () => {
       const asset: CollectionAssetReference = {
-        id: `${kind}-${crypto.randomUUID()}`,
+        id: `${kind}-${createClientId()}`,
         name: file.name,
         mimeType: file.type,
         size: file.size,

@@ -1,4 +1,7 @@
 import type { CollectionDraft, TmdbDiscoverRule, TmdbDiscoverSettings } from '@vynode/contracts';
+import { createClientId } from './clientId';
+
+const crypto = { randomUUID: createClientId };
 
 export const defaultTmdbDiscoverSettings: TmdbDiscoverSettings = {
   movieSortBy: 'popularity.desc',

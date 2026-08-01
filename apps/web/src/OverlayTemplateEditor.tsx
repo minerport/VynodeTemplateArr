@@ -16,6 +16,7 @@ import {
 } from '@vynode/contracts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
+import { createClientId } from './clientId';
 import { InteractivePosterLayer } from './InteractivePosterLayer';
 import {
   OverlayDesignPreview,
@@ -518,10 +519,10 @@ export const OverlayTemplateEditor = ({
     setHistoryIndex(updated.length - 1);
   };
   const persistSavedItems=(items:typeof savedItems)=>{setSavedItems(items);localStorage.setItem('vynode-overlay-items',JSON.stringify(items));};
-  const groupLayers=()=>{if(groupSelection.length<2)return;const groupId=`group-${crypto.randomUUID().slice(0,8)}`;commit({...design,elements:design.elements.map((layer)=>groupSelection.includes(layer.id)?{...layer,groupId}:layer)});setGroupSelection([]);};
+  const groupLayers=()=>{if(groupSelection.length<2)return;const groupId=`group-${createClientId().slice(0,8)}`;commit({...design,elements:design.elements.map((layer)=>groupSelection.includes(layer.id)?{...layer,groupId}:layer)});setGroupSelection([]);};
   const ungroupLayers=()=>{const groupId=selected?.groupId;const ids=new Set(groupSelection);commit({...design,elements:design.elements.map((layer)=>(groupId&&layer.groupId===groupId)||ids.has(layer.id)?{...layer,groupId:undefined}:layer)});setGroupSelection([]);};
-  const saveReusable=()=>{if(!selected||!['text','icon','svg','raster'].includes(selected.type))return;const name=window.prompt('Name this reusable overlay item',selected.name);if(!name?.trim())return;const kind=selected.type==='text'?'title':selected.type==='raster'?'image':'icon';persistSavedItems([...savedItems,{id:`saved-${crypto.randomUUID().slice(0,8)}`,name:name.trim(),kind,layer:structuredClone(selected)}]);};
-  const insertReusable=(saved:typeof savedItems[number])=>{const id=`${saved.layer.type}-${crypto.randomUUID().slice(0,7)}`;const layer={...structuredClone(saved.layer),id,groupId:undefined,name:saved.name,layerOrder:design.elements.length,x:100,y:150};commit({...design,elements:[...design.elements,layer]});setSelectedId(id);};
+  const saveReusable=()=>{if(!selected||!['text','icon','svg','raster'].includes(selected.type))return;const name=window.prompt('Name this reusable overlay item',selected.name);if(!name?.trim())return;const kind=selected.type==='text'?'title':selected.type==='raster'?'image':'icon';persistSavedItems([...savedItems,{id:`saved-${createClientId().slice(0,8)}`,name:name.trim(),kind,layer:structuredClone(selected)}]);};
+  const insertReusable=(saved:typeof savedItems[number])=>{const id=`${saved.layer.type}-${createClientId().slice(0,7)}`;const layer={...structuredClone(saved.layer),id,groupId:undefined,name:saved.name,layerOrder:design.elements.length,x:100,y:150};commit({...design,elements:[...design.elements,layer]});setSelectedId(id);};
   const groupGeometry=(layer:OverlayLayer,geometry:Pick<OverlayLayer,'x'|'y'|'width'|'height'>)=>{if(!layer.groupId)return{[layer.id]:geometry};const sx=geometry.width/layer.width;const sy=geometry.height/layer.height;return Object.fromEntries(design.elements.filter((item)=>item.groupId===layer.groupId).map((item)=>[item.id,item.id===layer.id?geometry:{x:geometry.x+(item.x-layer.x)*sx,y:geometry.y+(item.y-layer.y)*sy,width:Math.max(20,item.width*sx),height:Math.max(20,item.height*sy)}]));};
   const updateLayer = (
     input: Partial<OverlayLayer>,
@@ -547,7 +548,7 @@ export const OverlayTemplateEditor = ({
     type: OverlayLayerType,
     asset?: { id: string; name: string }
   ) => {
-    const id = `${type}-${crypto.randomUUID().slice(0, 7)}`;
+    const id = `${type}-${createClientId().slice(0, 7)}`;
     const textBackground = {
       fillColor: '#000000',
       fillOpacity: 0,
@@ -781,7 +782,7 @@ export const OverlayTemplateEditor = ({
   };
   const duplicateLayer = () => {
     if (!selected) return;
-    const id = `${selected.type}-${crypto.randomUUID().slice(0, 7)}`;
+    const id = `${selected.type}-${createClientId().slice(0, 7)}`;
     const duplicate = {
       ...structuredClone(selected),
       id,
@@ -798,7 +799,7 @@ export const OverlayTemplateEditor = ({
   };
   const pasteLayer = () => {
     if (!copiedLayer) return;
-    const id = `${copiedLayer.type}-${crypto.randomUUID().slice(0, 7)}`;
+    const id = `${copiedLayer.type}-${createClientId().slice(0, 7)}`;
     const pasted: OverlayLayer = {
       ...structuredClone(copiedLayer),
       id,

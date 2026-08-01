@@ -7,6 +7,7 @@ import {
 } from '@vynode/contracts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
+import { createClientId } from './clientId';
 import { InteractivePosterLayer } from './InteractivePosterLayer';
 import {
   posterPreviewSamples,
@@ -500,7 +501,7 @@ export const CollectionPostersPage = () => {
     type: CollectionPosterLayer['type'],
     asset?: { id: string; name: string; path: string }
   ) => {
-    const id = `${type}-${crypto.randomUUID().slice(0, 7)}`;
+    const id = `${type}-${createClientId().slice(0, 7)}`;
     const properties =
       type === 'text'
         ? {
@@ -578,7 +579,7 @@ export const CollectionPostersPage = () => {
   };
   const duplicateSelectedLayer = () => {
     if (!selectedLayer || !editor) return;
-    const id = `${selectedLayer.type}-${crypto.randomUUID().slice(0, 7)}`;
+    const id = `${selectedLayer.type}-${createClientId().slice(0, 7)}`;
     const duplicate: CollectionPosterLayer = {
       ...structuredClone(selectedLayer),
       id,
