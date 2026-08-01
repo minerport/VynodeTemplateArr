@@ -1,6 +1,6 @@
 {
   "name": "vynode",
-  "version": "0.1.0-rc.1",
+  "version": "0.1.0-rc.2",
   "private": true,
   "license": "GPL-3.0-only",
   "packageManager": "pnpm@11.7.0",
