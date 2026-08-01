@@ -19,11 +19,11 @@ FROM node:24-alpine AS runtime
 ARG VYNODE_BUILD=github-actions
 ARG VYNODE_COMMIT=unknown
 LABEL org.opencontainers.image.title="Vynode" \
-    org.opencontainers.image.version="0.1.0-rc.2" \
+    org.opencontainers.image.version="0.1.0-rc.3" \
     org.opencontainers.image.licenses="GPL-3.0-only" \
     org.opencontainers.image.description="Self-hosted Plex collections, posters, overlays, watchlists, and missing-media management"
 ENV NODE_ENV=production \
-    VYNODE_VERSION=0.1.0-rc.2 \
+    VYNODE_VERSION=0.1.0-rc.3 \
     VYNODE_BUILD=$VYNODE_BUILD \
     VYNODE_COMMIT=$VYNODE_COMMIT \
     VYNODE_DOCUMENTATION_URL=https://github.com/minerport/VynodeTemplateArr/blob/main/README.md \
