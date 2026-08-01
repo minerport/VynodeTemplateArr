@@ -14,8 +14,8 @@ This registry is the implementation checklist for the complete poster subsystem.
 
 - [x] Initial source-selection prompt and later Change source action
 - [ ] Plex base posters: download on selection, per-library and overall progress, failures, cancellation, background continuation
-- [ ] Plex re-download: clean-poster warning and exact `I HAVE CLEAN POSTERS` confirmation
-- [ ] Plex change detection on later runs
+- [x] Plex re-download: clean-poster warning and exact `I HAVE CLEAN POSTERS` confirmation
+- [x] Plex change detection on later runs
 - [x] Local posters: folder convention, supported extensions, TMDB fallback, mounted-path validation
 - [x] Local utility: generate folder structure, progress, safe existing-file preservation, and failure reporting
 - [x] Local utility: populate from Plex, progress, safe existing-file preservation, and failure reporting
@@ -38,7 +38,7 @@ This registry is the implementation checklist for the complete poster subsystem.
 - [x] Name, description, tags, automatic type, enabled state, preview poster, and refresh/cycle
 - [x] 1000×1500 canvas, zoom, pan, selection, drag, resize, snap guides, undo/redo
 - [x] Layer add/duplicate/delete/show/hide/lock/reorder controls
-- [ ] Text: value, font family/file, size, weight, style, color, opacity, alignment, stroke, shadow, rotation, position, dimensions (all except font upload, stroke, and shadow implemented)
+- [ ] Text: value, font family/file, size, weight, style, color, opacity, alignment, stroke, shadow, rotation, position, dimensions (all except font upload implemented)
 - [x] Variable text: segmented literal/variable content, date formats, strict missing-value skip behavior, and grouped layers
 - [x] Tile: fill, border, individual/locked corner radii, opacity, sizing and position
 - [x] Raster image: upload/asset selection, contain/cover/fill fit, opacity, rotation, sizing and position
@@ -97,7 +97,7 @@ This registry is the implementation checklist for the complete poster subsystem.
 - [x] Poster templates, saved posters and collection-poster validated CRUD routes
 - [x] Durable poster-editor asset index and opaque byte storage, multipart upload, authenticated serving, MIME/signature validation, SVG sanitization, concurrent-write serialization, and design-reference validation
 - [x] Atomic database persistence and migrations
-- [ ] Base-poster storage, cache, download, change detection and reset
+- [x] Base-poster storage, cache, download, change detection and reset
 - [x] Local folder service and mounted-path security
 - [x] Overlay context builder, preset variables, mappings and condition evaluation
 - [x] Renderer output parity for all currently exposed overlay and collection-poster layer types
