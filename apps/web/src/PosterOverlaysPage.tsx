@@ -56,38 +56,11 @@ export const PosterOverlaysPage = () => {
   const [libraryMutationBusy, setLibraryMutationBusy] = useState<string>();
   const [localUtilityBusy, setLocalUtilityBusy] = useState<'folders' | 'populate'>();
   const exportTemplate = (template: OverlayTemplateSummary) => {
-    const safeName = template.name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '') || 'overlay-template';
-    const payload = {
-      format: 'vynode-overlay-template',
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      template: {
-        name: template.name,
-        description: template.description,
-        type: template.type,
-        tags: template.tags,
-        enabled: template.enabled,
-        conditionSummary: template.conditionSummary,
-        accent: template.accent,
-        design: template.design,
-        ...(template.condition ? { condition: template.condition } : {}),
-      },
-    };
-    const url = URL.createObjectURL(
-      new Blob([JSON.stringify(payload, null, 2)], {
-        type: 'application/json',
-      })
-    );
     const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `${safeName}.vynode-overlay.json`;
+    anchor.href = `/api/posters/overlays/templates/${encodeURIComponent(template.id)}/export`;
+    anchor.download = '';
     anchor.click();
-    URL.revokeObjectURL(url);
-    setMessage(`${template.name} exported.`);
+    setMessage(`${template.name} ZIP export started.`);
   };
   const load = async () => {
     try {

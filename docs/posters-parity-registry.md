@@ -28,7 +28,7 @@ This registry is the implementation checklist for the complete poster subsystem.
 - [x] Create template and preset starting points
 - [x] Import overlay ZIP with file picker, validation, conflicts, safe extraction, and result summary
 - [x] Template cards: preview, name, description, type, condition, tags, and enabled state
-- [ ] Edit, duplicate, copy overlay elements, export ZIP, and guarded delete (all except ZIP export implemented)
+- [x] Edit, duplicate, copy overlay elements, portable ZIP export with manifest/assets, and guarded delete
 - [x] Grid density control and hide-inactive filtering
 - [x] Full overlay sync; queued/running/complete/error/cancelled states
 - [x] Source settings, reset posters, and test-item entry points

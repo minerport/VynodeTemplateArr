@@ -80,6 +80,7 @@ import Fastify, {
   type FastifyReply,
   type FastifyRequest,
 } from 'fastify';
+import { ZipFile } from 'yazl';
 import type { DashboardJobService } from './dashboard-jobs.js';
 import {
   readAgregarrArchive,
@@ -91,6 +92,15 @@ import {
 } from './agregarr-template-import.js';
 
 const sessionCookie = 'vynode.session';
+
+const finishZip = (archive: ZipFile): Promise<Buffer> =>
+  new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    archive.outputStream.on('data', (chunk: Buffer) => chunks.push(chunk));
+    archive.outputStream.once('error', reject);
+    archive.outputStream.once('end', () => resolve(Buffer.concat(chunks)));
+    archive.end();
+  });
 type OverlayTemplateInput = Omit<
   OverlayTemplateSummary,
   'id' | 'displayOrder' | 'elementCount'
@@ -1067,6 +1077,41 @@ export const createControlPlane = async (
         result ??
         reply.code(404).send({ message: 'Overlay template was not found.' })
       );
+    }
+  );
+  app.get<{ Params: { id: string } }>(
+    '/api/posters/overlays/templates/:id/export',
+    async (request, reply) => {
+      const workspace = await dependencies.posterOverlays?.get();
+      const template = workspace?.templates.find((item) => item.id === request.params.id);
+      if (!template) return reply.code(404).send({ message: 'Overlay template was not found.' });
+      const archive = new ZipFile();
+      archive.addBuffer(Buffer.from(JSON.stringify({
+        format: 'vynode-overlay-template',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        template: {
+          name: template.name,
+          description: template.description,
+          type: template.type,
+          tags: template.tags,
+          enabled: template.enabled,
+          conditionSummary: template.conditionSummary,
+          accent: template.accent,
+          condition: template.condition,
+          design: template.design,
+        },
+      }, null, 2)), 'template.json');
+      const assetIds = [...new Set(template.design.elements.map((layer) => String(layer.properties.assetId ?? '')).filter(Boolean))];
+      for (const assetId of assetIds) {
+        const stored = await dependencies.collectionPosters?.readAsset(assetId);
+        if (!stored) return reply.code(409).send({ message: `Template asset "${assetId}" is unavailable.` });
+        const extension = stored.asset.kind === 'svg' ? 'svg' : stored.asset.mimeType === 'image/png' ? 'png' : stored.asset.mimeType === 'image/webp' ? 'webp' : 'jpg';
+        archive.addBuffer(Buffer.from(stored.bytes), `assets/${assetId}.${extension}`);
+      }
+      const bytes = await finishZip(archive);
+      const safeName = template.name.replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '') || 'overlay-template';
+      return reply.header('content-type', 'application/zip').header('content-disposition', `attachment; filename="${safeName}.vynode-overlay.zip"`).send(bytes);
     }
   );
   app.get<{ Params: { id: string } }>(
