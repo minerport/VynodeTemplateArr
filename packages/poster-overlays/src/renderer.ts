@@ -139,7 +139,8 @@ const textAnchor = (alignment: string): { x: string; anchor: string } =>
 const textSvg = (
   layer: OverlayLayer,
   geometry: OverlayRenderGeometry,
-  value: string
+  value: string,
+  customFont?: Uint8Array
 ): Buffer => {
   const alignment = string(layer, 'textAlign', 'left');
   const anchor = textAnchor(alignment);
@@ -161,7 +162,8 @@ const textSvg = (
   const shadowBlur = number(layer, 'textShadowBlur', 0, 0, 100) * scale;
   const shadowX = number(layer, 'textShadowOffsetX', 0, -100, 100) * scale;
   const shadowY = number(layer, 'textShadowOffsetY', 0, -100, 100) * scale;
-  const family = xml(string(layer, 'fontFamily', 'Arial'));
+  const family = customFont ? 'VynodeCustomFont' : xml(string(layer, 'fontFamily', 'Arial'));
+  const fontFace = customFont ? `<style>@font-face{font-family:'VynodeCustomFont';src:url(data:font/woff2;base64,${Buffer.from(customFont).toString('base64')})}</style>` : '';
   const weight =
     string(layer, 'fontWeight', 'normal') === 'bold' ? 'bold' : 'normal';
   const style =
@@ -188,7 +190,7 @@ const textSvg = (
     ? `<defs><filter id="text-shadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="${shadowX}" dy="${shadowY}" stdDeviation="${shadowBlur}" flood-color="${shadowColor}" flood-opacity="${shadowOpacity}"/></filter></defs>`
     : '';
   return Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${geometry.width}" height="${geometry.height}">${shadow}<path d="${roundedPath(geometry.width, geometry.height, radii)}" fill="${background}" fill-opacity="${backgroundOpacity}" stroke="${stroke}" stroke-width="${strokeWidth}"/><text x="${anchor.x}" y="50%" dominant-baseline="middle" text-anchor="${anchor.anchor}" font-family="${family}" font-size="${fontSize}" font-weight="${weight}" font-style="${style}" fill="${fill}" stroke="${textStroke}" stroke-width="${textStrokeWidth}" paint-order="stroke fill" opacity="${opacity}"${shadowOpacity > 0 ? ' filter="url(#text-shadow)"' : ''}>${xml(value)}</text></svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${geometry.width}" height="${geometry.height}">${fontFace}${shadow}<path d="${roundedPath(geometry.width, geometry.height, radii)}" fill="${background}" fill-opacity="${backgroundOpacity}" stroke="${stroke}" stroke-width="${strokeWidth}"/><text x="${anchor.x}" y="50%" dominant-baseline="middle" text-anchor="${anchor.anchor}" font-family="${family}" font-size="${fontSize}" font-weight="${weight}" font-style="${style}" fill="${fill}" stroke="${textStroke}" stroke-width="${textStrokeWidth}" paint-order="stroke fill" opacity="${opacity}"${shadowOpacity > 0 ? ' filter="url(#text-shadow)"' : ''}>${xml(value)}</text></svg>`
   );
 };
 
@@ -566,7 +568,7 @@ export class NativeOverlayRenderer {
         if (layer.type === 'shape') input = shapeSvg(layer, placement);
         if (layer.type === 'icon') input = iconSvg(layer, placement);
         if (layer.type === 'text')
-          input = textSvg(layer, placement, string(layer, 'text', ''));
+          input = textSvg(layer, placement, string(layer, 'text', ''), string(layer, 'fontPath', '') && this.assets ? await this.assets.resolve(string(layer, 'fontPath', ''), signal) : undefined);
         if (layer.type === 'variable') {
           const segments = layer.properties.segments;
           const serviceSegment =
@@ -594,7 +596,7 @@ export class NativeOverlayRenderer {
               ? string(layer, 'missingValueFallback', 'N/A')
               : undefined);
           if (!input && renderedValue !== undefined)
-            input = textSvg(layer, placement, renderedValue);
+            input = textSvg(layer, placement, renderedValue, string(layer, 'fontPath', '') && this.assets ? await this.assets.resolve(string(layer, 'fontPath', ''), signal) : undefined);
         }
         if (layer.type === 'raster' || layer.type === 'svg') {
           const path =

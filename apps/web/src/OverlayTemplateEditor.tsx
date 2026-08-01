@@ -1286,7 +1286,7 @@ export const OverlayTemplateEditor = ({
                         }
                       />
                     </label>
-                    <Typography selected={selected} update={updateLayer} />
+                    <Typography selected={selected} update={updateLayer} assets={posterAssets} />
                   </>
                 )}
                 {selected.type === 'variable' && (
@@ -1295,7 +1295,7 @@ export const OverlayTemplateEditor = ({
                       segments={(selected.properties.segments as any[]) ?? []}
                       onChange={updateSegments}
                     />
-                    <Typography selected={selected} update={updateLayer} />
+                    <Typography selected={selected} update={updateLayer} assets={posterAssets} />
                     <MissingValueControls
                       selected={selected}
                       update={updateLayer}
@@ -1681,9 +1681,11 @@ const MissingValueControls = ({
 const Typography = ({
   selected,
   update,
+  assets,
 }: {
   selected: OverlayLayer;
   update(input: Partial<OverlayLayer>, properties?: Record<string, any>): void;
+  assets: readonly PosterEditorAsset[];
 }) => (
   <>
     <label>
@@ -1695,6 +1697,15 @@ const Typography = ({
         value={Number(selected.properties.fontSize ?? 60)}
         onChange={(e) => update({}, { fontSize: Number(e.target.value) })}
       />
+    </label>
+    <label>
+      Custom font file
+      <select value={String(selected.properties.fontPath ?? '')} onChange={(event) => { const asset = assets.find((item) => `asset://${item.id}` === event.target.value); update({}, { fontPath: event.target.value, assetId: asset?.id, fontAssetName: asset?.name }); }}>
+        <option value="">Use selected system font</option>
+        {assets.filter((asset) => asset.kind === 'font').map((asset) => <option key={asset.id} value={`asset://${asset.id}`}>{asset.name}</option>)}
+      </select>
+      <input type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; const extension = file.name.split('.').pop()?.toLowerCase(); const mime = extension === 'otf' ? 'font/otf' : extension === 'woff' ? 'font/woff' : extension === 'woff2' ? 'font/woff2' : 'font/ttf'; const normalized = new File([file], file.name, { type: mime }); void api.uploadCollectionPosterAsset(normalized).then((result) => { const asset = result.asset; update({}, { fontPath: `asset://${asset.id}`, assetId: asset.id, fontAssetName: asset.name }); }).catch(() => undefined); event.currentTarget.value = ''; }} />
+      <small>TTF, OTF, WOFF, or WOFF2 up to 10 MB. The font is embedded into rendered posters.</small>
     </label>
     <label>
       Font family

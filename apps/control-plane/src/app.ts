@@ -905,7 +905,7 @@ export const createControlPlane = async (
           name: imported.name,
           collectionPath: `/api/posters/collections/assets/${encodeURIComponent(asset.id)}`,
           overlayPath: `asset://${asset.id}`,
-          kind: asset.kind,
+          kind: asset.kind === 'font' ? 'raster' : asset.kind,
           ...(normalized.crop ? { crop: normalized.crop } : {}),
         });
       }
@@ -1108,7 +1108,7 @@ export const createControlPlane = async (
       for (const assetId of assetIds) {
         const stored = await dependencies.collectionPosters?.readAsset(assetId);
         if (!stored) return reply.code(409).send({ message: `Template asset "${assetId}" is unavailable.` });
-        const extension = stored.asset.kind === 'svg' ? 'svg' : stored.asset.mimeType === 'image/png' ? 'png' : stored.asset.mimeType === 'image/webp' ? 'webp' : 'jpg';
+        const extension = stored.asset.kind === 'svg' ? 'svg' : stored.asset.kind === 'font' ? stored.asset.mimeType.slice(5) : stored.asset.mimeType === 'image/png' ? 'png' : stored.asset.mimeType === 'image/webp' ? 'webp' : 'jpg';
         archive.addBuffer(Buffer.from(stored.bytes), `assets/${assetId}.${extension}`);
       }
       const bytes = await finishZip(archive);

@@ -9,6 +9,10 @@ const supportedMimeTypes = [
   'image/png',
   'image/webp',
   'image/svg+xml',
+  'font/ttf',
+  'font/otf',
+  'font/woff',
+  'font/woff2',
 ] as const;
 
 const imageMimeType = (bytes: Uint8Array): PosterEditorAsset['mimeType'] | undefined => {
@@ -107,14 +111,18 @@ export class FilePosterEditorAssetStore {
         input.mimeType as (typeof supportedMimeTypes)[number]
       )
     )
-      throw new Error('Only JPEG, PNG, WebP, and SVG poster assets are supported.');
+      throw new Error('Only JPEG, PNG, WebP, SVG, TTF, OTF, WOFF, and WOFF2 poster assets are supported.');
     if (!input.bytes.byteLength)
       throw new Error('The uploaded poster asset is empty.');
     if (input.bytes.byteLength > this.maxBytes)
       throw new Error('The uploaded poster asset exceeds the 10 MB limit.');
-    const kind = input.mimeType === 'image/svg+xml' ? 'svg' : 'raster';
+    const kind = input.mimeType.startsWith('font/') ? 'font' : input.mimeType === 'image/svg+xml' ? 'svg' : 'raster';
     if (kind === 'svg') validateSvg(input.bytes);
-    else if (imageMimeType(input.bytes) !== input.mimeType)
+    else if (kind === 'font') {
+      const header = String.fromCharCode(...input.bytes.slice(0, 4));
+      const valid = header === 'OTTO' || header === 'wOFF' || header === 'wOF2' || (input.bytes[0] === 0 && input.bytes[1] === 1 && input.bytes[2] === 0 && input.bytes[3] === 0);
+      if (!valid) throw new Error('The font contents do not match a supported TTF, OTF, WOFF, or WOFF2 file.');
+    } else if (imageMimeType(input.bytes) !== input.mimeType)
       throw new Error('The poster asset contents do not match its declared image type.');
 
     await mkdir(this.options.directory, { recursive: true, mode: 0o700 });
@@ -211,7 +219,7 @@ export class FilePosterEditorAssetStore {
       Number.isInteger(asset.size) &&
       asset.size > 0 &&
       asset.size <= this.maxBytes &&
-      asset.kind === (asset.mimeType === 'image/svg+xml' ? 'svg' : 'raster') &&
+      asset.kind === (asset.mimeType.startsWith('font/') ? 'font' : asset.mimeType === 'image/svg+xml' ? 'svg' : 'raster') &&
       typeof asset.createdAt === 'string' &&
       Number.isFinite(Date.parse(asset.createdAt))
     );

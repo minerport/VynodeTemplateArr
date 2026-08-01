@@ -72,6 +72,23 @@ test('rejects mismatched images and unsafe SVG content', async () => {
   }
 });
 
+test('stores validated custom poster fonts and rejects disguised files', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'vynode-editor-fonts-'));
+  try {
+    const store = new FilePosterEditorAssetStore({ directory });
+    const font = new Uint8Array([0x77, 0x4f, 0x46, 0x32, 0, 0, 0, 1]);
+    const saved = await store.save({ name: 'brand.woff2', mimeType: 'font/woff2', bytes: font });
+    assert.equal(saved.kind, 'font');
+    assert.deepEqual((await store.read(saved.id))?.bytes, font);
+    await assert.rejects(
+      store.save({ name: 'fake.ttf', mimeType: 'font/ttf', bytes: png }),
+      /font contents/
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('serializes concurrent saves and refuses corrupt index or asset bytes', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'vynode-editor-assets-'));
   try {

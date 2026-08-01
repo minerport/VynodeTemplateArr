@@ -1174,9 +1174,9 @@ export interface SourceColorScheme {
 export interface PosterEditorAsset {
   id: string;
   name: string;
-  mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/svg+xml';
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/svg+xml' | 'font/ttf' | 'font/otf' | 'font/woff' | 'font/woff2';
   size: number;
-  kind: 'raster' | 'svg';
+  kind: 'raster' | 'svg' | 'font';
   createdAt: string;
 }
 
