@@ -9,7 +9,7 @@ the included Compose build while developing locally:
 openssl rand -base64 32
 cp .env.example .env
 # Put the generated value in VYNODE_MASTER_KEY, then:
-docker pull ghcr.io/minerport/vynodetemplatearr:0.1.0-rc.7
+docker pull ghcr.io/minerport/vynodetemplatearr:0.1.0-rc.8
 docker compose up -d --build
 ```
 

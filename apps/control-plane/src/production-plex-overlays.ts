@@ -3,6 +3,7 @@ import { ImdbClient, type MaintainerrOverlayItem } from '@vynode/integrations';
 import { PlexManagementClient, type PlexHttpTransport, type PlexServerConfiguration } from '@vynode/media-servers';
 import {
   createFileBackedOverlayApplication,
+  collectRequiredContextFields,
   evaluateOverlayConditionDetailed,
   generateLocalPosterFolders,
   identifyStreamingProvider,
@@ -18,6 +19,7 @@ import {
 import type { ProductionCollectionPosterStore } from './production-collection-posters.js';
 import type { ProductionPosterOverlayOperations, ProductionPosterOverlayStore } from './production-poster-overlays.js';
 import { AdaptiveTtlCache } from './adaptive-ttl-cache.js';
+import type { ProductionOverlayMediaCatalog } from './production-overlay-media-catalog.js';
 
 type RecordValue = Record<string, unknown>;
 const record = (value: unknown): RecordValue | undefined => typeof value === 'object' && value !== null && !Array.isArray(value) ? value as RecordValue : undefined;
@@ -39,19 +41,43 @@ const itemFromMetadata = (metadata: RecordValue, library: { key: string; title: 
     const streams = records(part?.Stream);
     const video = streams.filter((stream) => text(stream.streamType) === '1');
     const audio = streams.filter((stream) => text(stream.streamType) === '2');
+    const subtitles = streams.filter((stream) => text(stream.streamType) === '3');
     const selectedAudio = audio.find((stream) => text(stream.selected) === '1') ?? audio[0];
+    const selectedVideo = video.find((stream) => text(stream.selected) === '1') ?? video[0];
     const number = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : undefined;
+    const language = (stream: RecordValue) => ({
+      ...(text(stream.languageCode) ? { code: text(stream.languageCode) } : {}),
+      ...(text(stream.language) ? { name: text(stream.language) } : {}),
+    });
+    const width = number(entry.width);
+    const height = number(entry.height);
     return {
-      ...(number(entry.width) !== undefined ? { width: number(entry.width) } : {}),
-      ...(number(entry.height) !== undefined ? { height: number(entry.height) } : {}),
+      ...(width !== undefined ? { width } : {}),
+      ...(height !== undefined ? { height } : {}),
+      ...(number(entry.aspectRatio) !== undefined
+        ? { aspectRatio: number(entry.aspectRatio) }
+        : width && height
+          ? { aspectRatio: width / height }
+          : {}),
       ...(text(entry.videoResolution) ? { resolution: /^\d{3,4}$/.test(text(entry.videoResolution)) ? `${text(entry.videoResolution)}p` : text(entry.videoResolution) } : {}),
-      ...(text(entry.videoCodec) ? { videoCodec: text(entry.videoCodec) } : {}),
+      ...(text(selectedVideo?.codec ?? entry.videoCodec) ? { videoCodec: text(selectedVideo?.codec ?? entry.videoCodec) } : {}),
+      ...(text(selectedVideo?.profile ?? entry.videoProfile) ? { videoProfile: text(selectedVideo?.profile ?? entry.videoProfile) } : {}),
+      ...(text(entry.videoFrameRate ?? selectedVideo?.frameRate) ? { frameRate: text(entry.videoFrameRate ?? selectedVideo?.frameRate) } : {}),
+      ...(number(selectedVideo?.bitDepth) !== undefined ? { bitDepth: number(selectedVideo?.bitDepth) } : {}),
       ...(text(entry.container) ? { container: text(entry.container) } : {}),
       ...(text(selectedAudio?.codec ?? entry.audioCodec) ? { audioCodec: text(selectedAudio?.codec ?? entry.audioCodec) } : {}),
       ...(number(selectedAudio?.channels ?? entry.audioChannels) !== undefined ? { audioChannels: number(selectedAudio?.channels ?? entry.audioChannels) } : {}),
+      ...(text(selectedAudio?.channelLayout) ? { audioChannelLayout: text(selectedAudio?.channelLayout) } : {}),
+      ...(text(selectedAudio?.profile ?? selectedAudio?.displayTitle) ? { audioFormat: text(selectedAudio?.profile ?? selectedAudio?.displayTitle) } : {}),
+      audioLanguages: audio.map(language).filter((value) => value.code || value.name),
+      subtitleLanguages: subtitles.map(language).filter((value) => value.code || value.name),
+      ...(number(entry.bitrate ?? part?.bitrate) !== undefined ? { bitrateKbps: number(entry.bitrate ?? part?.bitrate) } : {}),
+      ...(number(part?.size) !== undefined ? { fileSize: number(part?.size) } : {}),
       ...(text(part?.file) ? { filePath: text(part?.file) } : {}),
       hdr: video.some((stream) => ['smpte2084', 'arib-std-b67'].includes(text(stream.colorTrc).toLowerCase())),
       dolbyVision: video.some((stream) => text(stream.DOVIPresent).startsWith('1')),
+      ...(number(selectedVideo?.DOVIProfile) !== undefined ? { dolbyVisionProfile: number(selectedVideo?.DOVIProfile) } : {}),
+      ...(text(selectedVideo?.colorTrc) ? { colorTrc: text(selectedVideo?.colorTrc) } : {}),
     } as NonNullable<OverlayApplicationItem['media']>[number];
   });
   const number = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : undefined;
@@ -59,8 +85,31 @@ const itemFromMetadata = (metadata: RecordValue, library: { key: string; title: 
   const year = number(metadata.year);
   const durationMs = number(metadata.duration);
   const userRating = number(metadata.userRating);
+  const ratings = records(metadata.Rating);
+  const ratingValue = (match: (entry: RecordValue) => boolean) =>
+    number(ratings.find(match)?.value);
+  const ratingSource = (entry: RecordValue) =>
+    `${text(entry.image)} ${text(entry.key)} ${text(entry.type)}`.toLowerCase();
+  const imdbRating = ratingValue((entry) => ratingSource(entry).includes('imdb'));
+  const normalizeRt = (value: number | undefined) =>
+    value !== undefined && value <= 10 ? Math.round(value * 10) : value;
+  const rtCriticsScore = normalizeRt(ratingValue(
+    (entry) => ratingSource(entry).includes('rottentomatoes') && !ratingSource(entry).includes('audience')
+  ));
+  const rtAudienceScore = normalizeRt(ratingValue(
+    (entry) => ratingSource(entry).includes('rottentomatoes') && ratingSource(entry).includes('audience')
+  ));
   const addedAt = epoch(metadata.addedAt);
   const lastViewedAt = epoch(metadata.lastViewedAt);
+  const viewCount = number(metadata.viewCount);
+  const totalSeasons = number(metadata.childCount);
+  const seasonsAvailable = number(metadata.childCount);
+  const seasonNumber = number(metadata.parentIndex);
+  const episodeNumber = number(metadata.index);
+  const episodeLabel =
+    seasonNumber !== undefined && episodeNumber !== undefined
+      ? `S${String(seasonNumber).padStart(2, '0')}E${String(episodeNumber).padStart(2, '0')}`
+      : undefined;
   const base: OverlayApplicationItem = {
     ratingKey, title, mediaType: library.type, libraryId: library.key, libraryName: library.title,
     ...(year !== undefined ? { year } : {}),
@@ -69,10 +118,20 @@ const itemFromMetadata = (metadata: RecordValue, library: { key: string; title: 
     ...(imdbId ? { imdbId } : {}),
     ...(durationMs !== undefined ? { durationMs } : {}),
     ...(userRating !== undefined ? { userRating } : {}),
+    ...(imdbRating !== undefined ? { imdbRating } : {}),
+    ...(rtCriticsScore !== undefined ? { rtCriticsScore } : {}),
+    ...(rtAudienceScore !== undefined ? { rtAudienceScore } : {}),
     ...(text(metadata.studio) ? { studio: text(metadata.studio) } : {}),
     ...(text(metadata.originallyAvailableAt) ? { releaseDate: text(metadata.originallyAvailableAt) } : {}),
     ...(addedAt ? { addedAt } : {}),
     ...(lastViewedAt ? { lastViewedAt } : {}),
+    ...(viewCount !== undefined ? { viewCount } : {}),
+    ...(totalSeasons !== undefined ? { totalSeasons } : {}),
+    ...(seasonsAvailable !== undefined ? { seasonsAvailable } : {}),
+    ...(seasonNumber !== undefined ? { seasonNumber } : {}),
+    ...(episodeNumber !== undefined ? { episodeNumber } : {}),
+    ...(episodeLabel ? { episodeLabel } : {}),
+    ...(text(metadata.contentRating) ? { imdbContentRating: text(metadata.contentRating) } : {}),
     genres: tags(metadata.Genre), directors: tags(metadata.Director), labels: tags(metadata.Label), collections: tags(metadata.Collection),
     networks: [...new Set([...tags(metadata.Network), text(metadata.network)].filter(Boolean))], media,
   };
@@ -95,8 +154,21 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     imdbClient: Pick<ImdbClient, 'title'> = new ImdbClient(),
     private readonly maintainerrItems: (signal?: AbortSignal) => Promise<readonly MaintainerrOverlayItem[]> = async () => [],
     private readonly arrContext: (item: OverlayApplicationItem, signal?: AbortSignal) => Promise<Readonly<Record<string, string | number | boolean | readonly string[] | undefined>>> = async () => ({}),
-    private readonly reportFailure: (libraryId: string, message: string) => void = () => undefined
+    private readonly reportFailure: (libraryId: string, message: string) => void = () => undefined,
+    private readonly catalog?: ProductionOverlayMediaCatalog
   ) {
+    const durableContext = async (
+      item: Pick<OverlayApplicationItem, 'ratingKey'>,
+      provider: string,
+      maxAgeMs: number,
+      load: () => Promise<Readonly<Record<string, string | number | boolean | readonly string[] | undefined>>>
+    ) => {
+      const cached = this.catalog?.getEnrichment(item.ratingKey, provider, maxAgeMs);
+      if (cached) return cached;
+      const values = await load();
+      await this.catalog?.putEnrichment(item.ratingKey, provider, values);
+      return values;
+    };
     const imdbMetadataCache = new AdaptiveTtlCache<Awaited<ReturnType<ImdbClient['title']>>>({ minimumTtlMs: 15 * 60_000, initialTtlMs: 6 * 60 * 60_000, maximumTtlMs: 7 * 24 * 60 * 60_000, negativeTtlMs: 5 * 60_000 });
     const tmdbMetadataCache = new AdaptiveTtlCache<RecordValue>({ minimumTtlMs: 15 * 60_000, initialTtlMs: 6 * 60 * 60_000, maximumTtlMs: 7 * 24 * 60 * 60_000, negativeTtlMs: 5 * 60_000 });
     const imdbProvider: OverlayContextProvider = {
@@ -104,8 +176,9 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
       fields: new Set(['imdbRating','imdbVotes','imdbContentRating','imdbGenres','imdbKeywords','imdbActors','imdbDirectors','imdbCreators','imdbPlot','imdbAlternateTitle','imdbReleaseDate','imdbRuntime','genre','director','releaseDate','runtime']),
       async load(item, fields, signal) {
         if (!item.imdbId || ![...fields].some((field) => this.fields.has(field))) return {};
-        const metadata = await imdbMetadataCache.get(item.imdbId, () => imdbClient.title(item.imdbId!, signal));
-        return {
+        return durableContext(item, 'imdb', 24 * 60 * 60_000, async () => {
+          const metadata = await imdbMetadataCache.get(item.imdbId!, () => imdbClient.title(item.imdbId!, signal));
+          return {
           imdbRating: metadata.rating,
           imdbVotes: metadata.ratingCount,
           imdbContentRating: metadata.contentRating,
@@ -122,7 +195,8 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
           director: metadata.directors?.[0],
           releaseDate: metadata.releaseDate,
           runtime: metadata.durationMinutes,
-        };
+          };
+        });
       },
     };
     const tmdbProvider: OverlayContextProvider = {
@@ -130,34 +204,36 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
       fields: new Set(['genre','director','studio','network','releaseDate','runtime']),
       async load(item, fields, signal) {
         if (!item.tmdbId || ![...fields].some((field) => this.fields.has(field))) return {};
-        const apiKey = await tmdbApiKey();
-        if (!apiKey) return {};
-        const metadata = await tmdbMetadataCache.get(`${item.mediaType}:${item.tmdbId}`, async () => {
+        return durableContext(item, 'tmdb', 24 * 60 * 60_000, async () => {
+          const apiKey = await tmdbApiKey();
+          if (!apiKey) return {};
+          const metadata = await tmdbMetadataCache.get(`${item.mediaType}:${item.tmdbId}`, async () => {
           const response = await fetchImplementation(
             `https://api.themoviedb.org/3/${item.mediaType === 'movie' ? 'movie' : 'tv'}/${item.tmdbId}?${new URLSearchParams({ api_key: apiKey, append_to_response: 'credits' })}`,
             signal ? { signal } : undefined
           );
           if (!response.ok) throw new Error(`TMDB metadata request failed (status ${response.status}).`);
           return response.json() as Promise<RecordValue>;
-        });
-        const crew = records(record(metadata.credits)?.crew);
-        return {
+          });
+          const crew = records(record(metadata.credits)?.crew);
+          return {
           genre: text(records(metadata.genres)[0]?.name),
           director: text(crew.find((entry) => text(entry.job).toLowerCase() === 'director')?.name),
           studio: text(records(metadata.production_companies)[0]?.name),
           network: text(records(metadata.networks)[0]?.name),
           releaseDate: text(metadata.release_date ?? metadata.first_air_date),
           runtime: Number(metadata.runtime ?? records(metadata.episode_run_time)[0]) || undefined,
-        };
+          };
+        });
       },
     };
     const maintainerrProvider: OverlayContextProvider = {
       name: 'Maintainerr', fields: new Set(['daysUntilAction']),
-      load: async (item, _fields, signal) => ({ daysUntilAction: (await this.maintainerrItems(signal)).find((candidate) => candidate.mediaId === item.ratingKey)?.daysRemaining }),
+      load: async (item, _fields, signal) => durableContext(item, 'maintainerr', 60_000, async () => ({ daysUntilAction: (await this.maintainerrItems(signal)).find((candidate) => candidate.mediaId === item.ratingKey)?.daysRemaining })),
     };
     const arrProvider: OverlayContextProvider = {
       name: 'Radarr/Sonarr', fields: new Set(['inRadarr','inSonarr','isMonitored','radarrTags','sonarrTags','downloaded']),
-      load: (item, _fields, signal) => this.arrContext(item as OverlayApplicationItem, signal),
+      load: (item, _fields, signal) => durableContext(item, 'arr', 5 * 60_000, () => this.arrContext(item as OverlayApplicationItem, signal)),
     };
     this.#contexts = new OverlayContextBuilder([imdbProvider, tmdbProvider, maintainerrProvider, arrProvider]);
     const plexPoster = async (item: Pick<OverlayApplicationItem, 'ratingKey'>, signal?: AbortSignal) => this.posterFromPlex(item.ratingKey, signal);
@@ -185,7 +261,7 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     });
   }
 
-  async #metadata(ratingKey: string, signal?: AbortSignal) { return containerMetadata(await (await this.plex()).transport.query(`/library/metadata/${encodeURIComponent(ratingKey)}?includeGuids=1&includeCollections=1&includeLabels=1&includeFields=1&includeMedia=1`, signal))[0]; }
+  async #metadata(ratingKey: string, signal?: AbortSignal) { return containerMetadata(await (await this.plex()).transport.query(`/library/metadata/${encodeURIComponent(ratingKey)}?includeGuids=1&includeCollections=1&includeLabels=1&includeFields=1&includeMedia=1&includeRatings=1`, signal))[0]; }
   async #item(ratingKey: string, signal?: AbortSignal) {
     const { configured } = await this.plex();
     const metadata = await this.#metadata(ratingKey, signal);
@@ -195,10 +271,12 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     return library ? itemFromMetadata(metadata, { key: library.key, title: library.title, type: library.type as 'movie' | 'show' }) : undefined;
   }
   async #items(libraryId: string, signal?: AbortSignal) {
+    const cached = this.catalog?.get(libraryId);
+    if (cached) return cached;
     const { configured, transport } = await this.plex();
     const library = configured.libraries.find((value) => value.key === libraryId && value.available && (value.type === 'movie' || value.type === 'show'));
     if (!library) throw new Error('The selected Plex library is unavailable.');
-    const summaries = containerMetadata(await transport.query(`/library/sections/${encodeURIComponent(libraryId)}/all?includeGuids=1&includeCollections=1&includeLabels=1&includeFields=1&includeMedia=1`, signal));
+    const summaries = containerMetadata(await transport.query(`/library/sections/${encodeURIComponent(libraryId)}/all?includeGuids=1&includeCollections=1&includeLabels=1&includeFields=1&includeMedia=1&includeRatings=1`, signal));
     const items: OverlayApplicationItem[] = [];
     for (const summary of summaries) {
       signal?.throwIfAborted();
@@ -214,6 +292,7 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
       if (item) items.push(item);
     }
     await this.store.updateLibraryRun(libraryId, { itemCount: items.length, indexedItems: items.length, lastSyncedAt: new Date().toISOString() });
+    await this.catalog?.put(libraryId, items);
     return items;
   }
   async posterFromPlex(ratingKey: string, signal?: AbortSignal) {
@@ -238,17 +317,26 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     const image = await this.fetchImplementation(`https://image.tmdb.org/t/p/original${path}`, signal ? { signal } : undefined); return image.ok ? new Uint8Array(await image.arrayBuffer()) : undefined;
   }
   async #runLibrary(library: OverlayLibraryConfiguration, signal: AbortSignal, reset = false): Promise<OverlayRunResult> {
+    const workspace = await this.store.get();
+    const templates = workspace.templates.filter((template) => library.enabledTemplateIds.includes(template.id));
     let items = await this.#items(library.id, signal);
-    if (library.type === 'show' && library.enableEpisodeScanning) {
+    const required = collectRequiredContextFields(templates);
+    const requiresEpisodeMedia = [...required].some((field) =>
+      field.startsWith('show') || field.startsWith('episode') || [
+        'resolution', 'hdr', 'dolbyVision', 'dolbyVisionProfile', 'videoCodec',
+        'audioCodec', 'audioChannels', 'bitDepth', 'fileSize', 'bitrate',
+      ].includes(field)
+    );
+    if (library.type === 'show' && (library.enableEpisodeScanning || requiresEpisodeMedia)) {
       const { transport } = await this.plex();
       items = await Promise.all(items.map(async (item) => {
         const episodes = containerMetadata(await transport.query(`/library/metadata/${encodeURIComponent(item.ratingKey)}/allLeaves?includeMedia=1`, signal));
         const media = episodes.flatMap((episode) => itemFromMetadata(episode, { key: library.id, title: library.name, type: 'show' })?.media ?? []);
         return { ...item, media };
       }));
+      await this.catalog?.put(library.id, items);
     }
     if (reset) return this.#application.reset(items, signal);
-    const workspace = await this.store.get(); const templates = workspace.templates.filter((template) => library.enabledTemplateIds.includes(template.id));
     const primary = await this.#application.apply(
       items, templates, workspace.source.source, library.tmdbLanguage, signal,
       (completed, failed) => this.store.updateLibraryRun(library.id, {
@@ -265,7 +353,8 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
   }
   async #finish(id: string, result: OverlayRunResult, reset = false) {
     const unchanged = result.items.filter((item) => item.status === 'skipped' && item.reason === 'The rendered poster is unchanged.').length;
-    const noMatch = result.items.filter((item) => item.status === 'skipped' && item.reason === 'No enabled overlay template matched this item.').length;
+    const noMatchItems = result.items.filter((item) => item.status === 'skipped' && item.reason?.startsWith('No enabled overlay template matched this item'));
+    const noMatch = noMatchItems.length;
     const failures = result.items.filter((item) => item.status === 'failed').map((item) => `${item.ratingKey}: ${item.reason ?? 'Overlay application failed.'}`);
     for (const failure of failures) this.reportFailure(id, failure);
     return this.store.updateLibraryRun(id, {
@@ -273,7 +362,12 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
       processedItems: result.items.length - result.failed, failedItems: result.failed,
       lastAppliedItems: result.applied, lastRestoredItems: result.restored,
       lastSkippedItems: result.skipped, lastUnchangedItems: unchanged,
-      lastNoMatchItems: noMatch, lastError: failures.length ? failures.join(' | ') : undefined,
+      lastNoMatchItems: noMatch,
+      lastError: failures.length
+        ? failures.join(' | ')
+        : noMatchItems.length === result.items.length
+          ? [...new Set(noMatchItems.map((item) => item.reason).filter((value): value is string => Boolean(value)))].slice(0, 5).join(' | ')
+          : undefined,
       lastAppliedAt: new Date().toISOString(),
     });
   }

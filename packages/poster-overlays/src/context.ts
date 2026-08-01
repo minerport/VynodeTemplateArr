@@ -40,6 +40,11 @@ export interface PlexOverlayMedia {
   addedAt?: string;
   lastViewedAt?: string;
   viewCount?: number;
+  totalSeasons?: number;
+  seasonsAvailable?: number;
+  seasonNumber?: number;
+  episodeNumber?: number;
+  episodeLabel?: string;
   media?: readonly {
     width?: number;
     height?: number;
@@ -200,6 +205,7 @@ export class OverlayContextBuilder {
     const episode4kCount = episodeMedia.filter((entry) => (entry.width ?? 0) >= 3840 || /2160|4k/i.test(entry.resolution ?? '')).length;
     const episodeHdrCount = episodeMedia.filter((entry) => entry.hdr).length;
     const episodeDvCount = episodeMedia.filter((entry) => entry.dolbyVision).length;
+    const bestEpisodeMedia = chooseBestMedia(episodeMedia);
 
     const context: Record<string, OverlayContextValue> = {
       title: item.title,
@@ -234,6 +240,11 @@ export class OverlayContextBuilder {
       plexLabels: item.labels,
       collection: item.collections,
       viewCount: item.viewCount,
+      totalSeasons: item.totalSeasons,
+      seasonsAvailable: item.seasonsAvailable,
+      seasonNumber: item.seasonNumber,
+      episodeNumber: item.episodeNumber,
+      episodeLabel: item.episodeLabel,
       dateAdded: addedAt,
       lastPlayed,
       daysSinceAdded: addedAt ? Math.max(0, daysBetween(addedAt, current)) : undefined,
@@ -289,6 +300,12 @@ export class OverlayContextBuilder {
       episodeDvPercent: episodeCount ? Math.round((episodeDvCount / episodeCount) * 100) : undefined,
       showHdr: episodeCount ? episodeHdrCount > 0 : undefined,
       showDolbyVision: episodeCount ? episodeDvCount > 0 : undefined,
+      showResolution: episodeCount ? bestEpisodeMedia?.resolution : undefined,
+      showDolbyVisionProfile: episodeCount ? bestEpisodeMedia?.dolbyVisionProfile : undefined,
+      showAudioCodec: episodeCount ? bestEpisodeMedia?.audioCodec : undefined,
+      showAudioChannels: episodeCount ? bestEpisodeMedia?.audioChannels : undefined,
+      showVideoCodec: episodeCount ? bestEpisodeMedia?.videoCodec : undefined,
+      showBitDepth: episodeCount ? bestEpisodeMedia?.bitDepth : undefined,
       episodeMediaSource: episodeCount ? 'Plex episode files' : undefined,
     };
 

@@ -113,6 +113,10 @@ export class ArrTagSourceClient {
   ): Promise<readonly ArrTagSourceItem[]> {
     if (!Number.isInteger(tagId) || tagId < 1)
       throw new Error(`${this.serviceName()} tag ID must be a positive integer.`);
+    return (await this.items(signal)).filter((item) => item.tagIds.includes(tagId));
+  }
+
+  public async items(signal?: AbortSignal): Promise<readonly ArrTagSourceItem[]> {
     const body = await this.get(
       this.options.kind === 'radarr' ? '/movie' : '/series',
       signal
@@ -122,11 +126,6 @@ export class ArrTagSourceClient {
         `${this.serviceName()} returned an invalid media response.`
       );
     return records(body)
-      .filter((item) =>
-        Array.isArray(item.tags)
-          ? item.tags.some((value) => Number(value) === tagId)
-          : false
-      )
       .map((item): ArrTagSourceItem | undefined => {
         const serviceId = positiveInteger(item.id);
         const title = String(item.title ?? '').trim();
@@ -140,6 +139,7 @@ export class ArrTagSourceClient {
           ...(year ? { year } : {}),
           ...(tmdbId ? { tmdbId } : {}),
           ...(tvdbId ? { tvdbId } : {}),
+          ...(typeof item.monitored === 'boolean' ? { monitored: item.monitored } : {}),
           tagIds: (item.tags as unknown[])
             .map(positiveInteger)
             .filter((id): id is number => id !== undefined),

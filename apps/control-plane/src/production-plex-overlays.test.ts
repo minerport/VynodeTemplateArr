@@ -24,7 +24,7 @@ test('production overlay executor discovers Plex items and exposes originating s
     }
     if (request.url?.startsWith('/library/metadata/101')) {
       response.setHeader('content-type', 'application/json');
-      response.end(JSON.stringify({ MediaContainer: { Metadata: [{ ratingKey: '101', librarySectionID: '1', title: 'Example', year: 2026, studio: 'Netflix', thumb: '/library/metadata/101/thumb/1', Guid: [{ id: 'tmdb://10' }, { id: 'tvdb://20' }, { id: 'imdb://tt1234567' }], Media: [{ width: 1920, height: 1080, videoResolution: '1080', Part: [{ Stream: [{ streamType: 1, colorTrc: 'smpte2084' }] }] }] }] } }));
+      response.end(JSON.stringify({ MediaContainer: { Metadata: [{ ratingKey: '101', librarySectionID: '1', title: 'Example', year: 2026, studio: 'Netflix', thumb: '/library/metadata/101/thumb/1', Guid: [{ id: 'tmdb://10' }, { id: 'tvdb://20' }, { id: 'imdb://tt1234567' }], Rating: [{ image: 'imdb://image.rating', value: 7.9 }], Media: [{ width: 1920, height: 1080, videoResolution: '1080', Part: [{ Stream: [{ streamType: 1, colorTrc: 'smpte2084' }] }] }] }] } }));
       return;
     }
     if (request.url?.startsWith('/photo/:/transcode')) {
@@ -56,7 +56,7 @@ test('production overlay executor discovers Plex items and exposes originating s
     assert.equal(found[0]?.ratingKey, '101');
     const preview = await overlays.testItem('101');
     assert.equal(preview?.context.streamingProvider, 'Netflix');
-    assert.equal(preview?.context.imdbRating, 8.2);
+    assert.equal(preview?.context.imdbRating, 7.9);
     assert.equal(preview?.templates[0]?.matched, true);
     assert.equal(preview?.context.hdr, true);
     assert.equal(preview?.context.daysUntilAction, 4);

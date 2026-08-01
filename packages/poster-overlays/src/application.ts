@@ -13,7 +13,10 @@ import {
   OverlayContextBuilder,
   type PlexOverlayMedia,
 } from './context.js';
-import type { OverlayRenderContext } from './conditions.js';
+import {
+  evaluateOverlayConditionDetailed,
+  type OverlayRenderContext,
+} from './conditions.js';
 import type { OverlayRenderReport } from './renderer.js';
 
 export interface OverlayApplicationItem
@@ -331,10 +334,31 @@ export class OverlayApplicationService {
             'Previously applied overlays no longer match the current configuration.',
         };
       }
+      const diagnostics = templates.flatMap((template) => {
+        if (!template.enabled) return [`${template.name}: template is disabled`];
+        const evaluation = evaluateOverlayConditionDetailed(
+          template.condition,
+          context.context
+        );
+        const failedRules = evaluation.sectionResults.flatMap((section) =>
+          section.ruleResults
+            .filter((rule) => !rule.matched)
+            .map(
+              (rule) =>
+                `${rule.field} ${rule.operator} ${JSON.stringify(rule.expectedValue)} (actual ${rule.actualValue === undefined ? 'missing' : JSON.stringify(rule.actualValue)})`
+            )
+        );
+        const elementFailures = rendered.skippedElements
+          .filter((entry) => entry.templateId === template.id)
+          .map((entry) => `${entry.elementId}: ${entry.reason}`);
+        return [
+          `${template.name}: ${failedRules.length ? failedRules.join(', ') : elementFailures.length ? elementFailures.join(', ') : 'no renderable layers'}`,
+        ];
+      });
       return {
         ratingKey: item.ratingKey,
         status: 'skipped',
-        reason: 'No enabled overlay template matched this item.',
+        reason: `No enabled overlay template matched this item${diagnostics.length ? ` — ${diagnostics.join(' | ')}` : ''}.`,
       };
     }
 

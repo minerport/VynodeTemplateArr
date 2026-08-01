@@ -119,7 +119,7 @@ test('derives show quality statistics from scanned Plex episode files', async ()
   const result = await new OverlayContextBuilder([]).build({
     ratingKey: 'show-1', title: 'Series', mediaType: 'show',
     media: [
-      { width: 3840, resolution: '4K', hdr: true, dolbyVision: true },
+      { width: 3840, resolution: '4K', hdr: true, dolbyVision: true, dolbyVisionProfile: 8, videoCodec: 'hevc', bitDepth: 10, audioCodec: 'truehd', audioChannels: 8 },
       { width: 1920, resolution: '1080p', hdr: false },
     ],
   }, []);
@@ -128,6 +128,12 @@ test('derives show quality statistics from scanned Plex episode files', async ()
   assert.equal(result.context.episodeHdrPercent, 50);
   assert.equal(result.context.episodeDvPercent, 50);
   assert.equal(result.context.showHdr, true);
+  assert.equal(result.context.showResolution, '4K');
+  assert.equal(result.context.showDolbyVisionProfile, 8);
+  assert.equal(result.context.showVideoCodec, 'hevc');
+  assert.equal(result.context.showBitDepth, 10);
+  assert.equal(result.context.showAudioCodec, 'truehd');
+  assert.equal(result.context.showAudioChannels, 8);
 });
 
 test('normalizes Plex metadata and selects the highest-resolution media part', async () => {

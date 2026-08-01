@@ -76,6 +76,7 @@ import { ProductionGeneralSettings } from './production-general-settings.js';
 import { ProductionJobsAndCache } from './production-jobs-cache.js';
 import { ProductionPlaceholderServices } from './production-placeholder-settings.js';
 import { ProductionPlexOverlayExecutor } from './production-plex-overlays.js';
+import { ProductionOverlayMediaCatalog } from './production-overlay-media-catalog.js';
 import { ProductionPosterOverlayStore } from './production-poster-overlays.js';
 import {
   SqliteArrRepository,
@@ -186,6 +187,7 @@ export const createProductionRuntime = async (
       identities.principalForUser(userId)
     );
     const audit = new SqliteAuditLog(storage);
+    const overlayMediaCatalog = new ProductionOverlayMediaCatalog(storage);
     const fetchingPolicyRepository = new SqliteJsonRepository<{
       letterboxdUsePlainHttp: boolean;
       flixpatrolUsePlainHttp: boolean;
@@ -666,6 +668,7 @@ export const createProductionRuntime = async (
             allowedMutationServerNames: new Set([configured.name]),
           })
         ).synchronize(collection, desired, signal, onPlexIdentity);
+        await overlayMediaCatalog.invalidate(collection.libraryId);
         return {
           plexRatingKey: report.plexRatingKey,
           itemCount: report.verifiedMemberKeys.length,
@@ -971,6 +974,42 @@ export const createProductionRuntime = async (
       storage,
       configuration.dataDirectory
     );
+    type ArrOverlayValues = Readonly<Record<string, string | number | boolean | readonly string[] | undefined>>;
+    const arrOverlaySnapshots = new Map<string, { expiresAt: number; value: Promise<Map<number, ArrOverlayValues>> }>();
+    const arrOverlaySnapshot = (kind: 'radarr' | 'sonarr', signal?: AbortSignal) => {
+      const cached = arrOverlaySnapshots.get(kind);
+      if (cached && cached.expiresAt > Date.now()) return cached.value;
+      const value = (async () => {
+        const indexed = new Map<number, ArrOverlayValues>();
+        for (const server of await arrRepository.list(kind)) {
+          const apiKey = await secrets.get(server.secretReference);
+          if (!apiKey) continue;
+          const client = new ArrTagSourceClient({ ...server.endpoint, apiKey });
+          const [tags, items] = await Promise.all([client.tags(signal), client.items(signal)]);
+          const names = new Map(tags.map((tag) => [tag.id, tag.label]));
+          for (const candidate of items) {
+            const externalId = kind === 'radarr' ? candidate.tmdbId : candidate.tvdbId;
+            if (!externalId) continue;
+            const previous = indexed.get(externalId);
+            const tagField = kind === 'radarr' ? 'radarrTags' : 'sonarrTags';
+            const labels = new Set<string>([
+              ...((previous?.[tagField] as readonly string[] | undefined) ?? []),
+              ...candidate.tagIds.flatMap((id) => names.get(id) ?? []),
+            ]);
+            indexed.set(externalId, {
+              ...previous,
+              [kind === 'radarr' ? 'inRadarr' : 'inSonarr']: true,
+              isMonitored: previous?.isMonitored === true || candidate.monitored === true,
+              [tagField]: [...labels].sort((left, right) => left.localeCompare(right)),
+            });
+          }
+        }
+        return indexed;
+      })();
+      arrOverlaySnapshots.set(kind, { expiresAt: Date.now() + 5 * 60_000, value });
+      void value.catch(() => arrOverlaySnapshots.delete(kind));
+      return value;
+    };
     const overlayExecutor = new ProductionPlexOverlayExecutor(
       resolve(configuration.dataDirectory, 'poster-overlays'),
       posterOverlays,
@@ -998,26 +1037,11 @@ export const createProductionRuntime = async (
       },
       async (item, signal) => {
         const kind = item.mediaType === 'movie' ? 'radarr' : 'sonarr';
-        const configurations = await arrRepository.list(kind);
-        const labels = new Set<string>();
-        let found = false;
-        let monitored = false;
-        for (const configuration of configurations) {
-          const apiKey = await secrets.get(configuration.secretReference);
-          if (!apiKey) continue;
-          const client = new ArrTagSourceClient({ ...configuration.endpoint, apiKey });
-          for (const tag of await client.tags(signal)) {
-            const matches = await client.itemsForTag(tag.id, signal);
-            const match = matches.find((candidate) => item.mediaType === 'movie' ? candidate.tmdbId === item.tmdbId : candidate.tvdbId === item.tvdbId);
-            if (!match) continue;
-            found = true;
-            monitored ||= match.monitored === true;
-            labels.add(tag.label);
-          }
-        }
-        return item.mediaType === 'movie'
-          ? { inRadarr: found, isMonitored: monitored, radarrTags: [...labels] }
-          : { inSonarr: found, isMonitored: monitored, sonarrTags: [...labels] };
+        const externalId = kind === 'radarr' ? item.tmdbId : item.tvdbId;
+        const found = externalId ? (await arrOverlaySnapshot(kind, signal)).get(externalId) : undefined;
+        return found ?? (kind === 'radarr'
+          ? { inRadarr: false, isMonitored: false, radarrTags: [] }
+          : { inSonarr: false, isMonitored: false, sonarrTags: [] });
       },
       (libraryId, message) => {
         audit.append({
@@ -1026,7 +1050,8 @@ export const createProductionRuntime = async (
           outcome: 'failure',
           details: { message },
         });
-      }
+      },
+      overlayMediaCatalog
     );
     posterOverlays.connectOperations(overlayExecutor);
     const placeholderServices = new ProductionPlaceholderServices(
