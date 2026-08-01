@@ -141,6 +141,32 @@ test('omits hidden collection-poster layers without reporting failures', async (
   assert.equal((await sharp(report.bytes).metadata()).format, 'webp');
 });
 
+test('renders collection-poster text stroke and shadow properties', async () => {
+  const styled = design();
+  styled.elements = [{
+    ...styled.elements[1]!,
+    properties: {
+      ...styled.elements[1]!.properties,
+      textStrokeColor: '#ff0000',
+      textStrokeWidth: 10,
+      textShadowColor: '#00ff00',
+      textShadowOpacity: 100,
+      textShadowBlur: 8,
+      textShadowOffsetX: 20,
+      textShadowOffsetY: 20,
+    },
+  }];
+  const plain = design();
+  plain.elements = [plain.elements[1]!];
+  const renderer = new NativeCollectionPosterRenderer();
+  const [styledReport, plainReport] = await Promise.all([
+    renderer.render(styled, { title: 'Styled' }),
+    renderer.render(plain, { title: 'Styled' }),
+  ]);
+  assert.notDeepEqual(styledReport.bytes, plainReport.bytes);
+  assert.deepEqual(styledReport.renderedLayerIds, ['title']);
+});
+
 test('propagates cancellation and enforces the configured output limit', async () => {
   const controller = new AbortController();
   controller.abort();

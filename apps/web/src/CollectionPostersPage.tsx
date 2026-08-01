@@ -121,6 +121,14 @@ const PosterPreview = ({
                   ...style,
                   color: String(item.properties.color ?? '#ffffff'),
                   fontFamily: String(item.properties.fontFamily ?? 'Inter'),
+                  fontWeight: String(item.properties.fontWeight ?? 'bold') as React.CSSProperties['fontWeight'],
+                  fontStyle: String(item.properties.fontStyle ?? 'normal') as React.CSSProperties['fontStyle'],
+                  opacity: Number(item.properties.opacity ?? 100) / 100,
+                  WebkitTextStrokeColor: String(item.properties.textStrokeColor ?? '#000000'),
+                  WebkitTextStrokeWidth: `${Number(item.properties.textStrokeWidth ?? 0) / 10}px`,
+                  textShadow: Number(item.properties.textShadowOpacity ?? 0) > 0
+                    ? `${Number(item.properties.textShadowOffsetX ?? 0) / 10}px ${Number(item.properties.textShadowOffsetY ?? 0) / 10}px ${Number(item.properties.textShadowBlur ?? 0) / 10}px color-mix(in srgb, ${String(item.properties.textShadowColor ?? '#000000')} ${Number(item.properties.textShadowOpacity ?? 0)}%, transparent)`
+                    : undefined,
                   fontSize: `${Math.max(8, Number(item.properties.fontSize ?? 72)) / 10}px`,
                   textAlign: String(item.properties.textAlign ?? 'left') as
                     | 'left'
@@ -1633,6 +1641,23 @@ export const CollectionPostersPage = () => {
                             }
                           />
                         </label>
+                        <div className="two-field">
+                          <label>Weight<select value={String(selectedLayer.properties.fontWeight ?? 'bold')} onChange={(event) => updateLayer({}, { fontWeight: event.target.value })}><option value="normal">Normal</option><option value="bold">Bold</option></select></label>
+                          <label>Style<select value={String(selectedLayer.properties.fontStyle ?? 'normal')} onChange={(event) => updateLayer({}, { fontStyle: event.target.value })}><option value="normal">Normal</option><option value="italic">Italic</option></select></label>
+                        </div>
+                        <label>Alignment<select value={String(selectedLayer.properties.textAlign ?? 'left')} onChange={(event) => updateLayer({}, { textAlign: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
+                        <label>Opacity ({Number(selectedLayer.properties.opacity ?? 100)}%)<input type="range" min="0" max="100" value={Number(selectedLayer.properties.opacity ?? 100)} onChange={(event) => updateLayer({}, { opacity: Number(event.target.value) })} /></label>
+                        <div className="two-field">
+                          <label>Stroke color<input type="color" value={String(selectedLayer.properties.textStrokeColor ?? '#000000')} onChange={(event) => updateLayer({}, { textStrokeColor: event.target.value })} /></label>
+                          <label>Stroke width<input type="number" min="0" max="40" value={Number(selectedLayer.properties.textStrokeWidth ?? 0)} onChange={(event) => updateLayer({}, { textStrokeWidth: Number(event.target.value) })} /></label>
+                        </div>
+                        <label>Shadow color<input type="color" value={String(selectedLayer.properties.textShadowColor ?? '#000000')} onChange={(event) => updateLayer({}, { textShadowColor: event.target.value })} /></label>
+                        <label>Shadow opacity ({Number(selectedLayer.properties.textShadowOpacity ?? 0)}%)<input type="range" min="0" max="100" value={Number(selectedLayer.properties.textShadowOpacity ?? 0)} onChange={(event) => updateLayer({}, { textShadowOpacity: Number(event.target.value) })} /></label>
+                        <div className="three-field">
+                          <label>Shadow X<input type="number" min="-100" max="100" value={Number(selectedLayer.properties.textShadowOffsetX ?? 0)} onChange={(event) => updateLayer({}, { textShadowOffsetX: Number(event.target.value) })} /></label>
+                          <label>Shadow Y<input type="number" min="-100" max="100" value={Number(selectedLayer.properties.textShadowOffsetY ?? 0)} onChange={(event) => updateLayer({}, { textShadowOffsetY: Number(event.target.value) })} /></label>
+                          <label>Blur<input type="number" min="0" max="100" value={Number(selectedLayer.properties.textShadowBlur ?? 0)} onChange={(event) => updateLayer({}, { textShadowBlur: Number(event.target.value) })} /></label>
+                        </div>
                       </>
                     )}
                     {selectedLayer.type === 'content-grid' && (

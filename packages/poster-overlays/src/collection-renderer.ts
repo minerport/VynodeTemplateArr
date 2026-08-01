@@ -74,8 +74,18 @@ const textLayer = (
       ? 'italic'
       : 'normal';
   const opacity = number(layer, 'opacity', 100, 0, 100) / 100;
+  const strokeColor = String(layer.properties.textStrokeColor ?? '#000000');
+  const strokeWidth = number(layer, 'textStrokeWidth', 0, 0, 40);
+  const shadowOpacity = number(layer, 'textShadowOpacity', 0, 0, 100) / 100;
+  const shadowColor = String(layer.properties.textShadowColor ?? '#000000');
+  const shadowBlur = number(layer, 'textShadowBlur', 0, 0, 100);
+  const shadowX = number(layer, 'textShadowOffsetX', 0, -100, 100);
+  const shadowY = number(layer, 'textShadowOffsetY', 0, -100, 100);
+  const shadow = shadowOpacity > 0
+    ? `<defs><filter id="text-shadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="${shadowX}" dy="${shadowY}" stdDeviation="${shadowBlur}" flood-color="${shadowColor}" flood-opacity="${shadowOpacity}"/></filter></defs>`
+    : '';
   return Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${layer.width}" height="${layer.height}"><text x="${x}" y="50%" dominant-baseline="middle" text-anchor="${anchor}" font-family="${family}" font-size="${size}" font-weight="${weight}" font-style="${style}" fill="${fill}" opacity="${opacity}">${xml(content)}</text></svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${layer.width}" height="${layer.height}">${shadow}<text x="${x}" y="50%" dominant-baseline="middle" text-anchor="${anchor}" font-family="${family}" font-size="${size}" font-weight="${weight}" font-style="${style}" fill="${fill}" stroke="${strokeColor}" stroke-width="${strokeWidth}" paint-order="stroke fill" opacity="${opacity}"${shadowOpacity > 0 ? ' filter="url(#text-shadow)"' : ''}>${xml(content)}</text></svg>`
   );
 };
 
