@@ -329,6 +329,9 @@ export const OverlayTemplateEditor = ({
   const [assetMessage, setAssetMessage] = useState('');
   const [replaceAsset, setReplaceAsset] = useState(false);
   const [copiedLayer, setCopiedLayer] = useState<OverlayLayer>();
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('');
+  const [saving, setSaving] = useState(false);
   const rasterInput = useRef<HTMLInputElement>(null);
   const svgInput = useRef<HTMLInputElement>(null);
   const [collectionOptions, setCollectionOptions] = useState<
@@ -358,6 +361,34 @@ export const OverlayTemplateEditor = ({
     () => design.elements.find((item) => item.id === selectedId),
     [design, selectedId]
   );
+  const initialSnapshot = useRef(JSON.stringify({
+    name: template?.name ?? '',
+    description: template?.description ?? '',
+    tags: template?.tags.join(', ') ?? '',
+    enabled: template?.enabled ?? true,
+    condition: template?.condition ? structuredClone(template.condition) : { sections: [] },
+    design: initialDesign,
+  }));
+  const dirty = JSON.stringify({ name, description, tags, enabled, condition, design }) !== initialSnapshot.current;
+  const requestClose = () => dirty ? setConfirmDiscard(true) : onClose();
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (confirmDiscard) setConfirmDiscard(false);
+      else requestClose();
+    };
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!dirty) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    document.addEventListener('keydown', onKeyDown);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+    };
+  }, [dirty, confirmDiscard]);
   const visibleDesign=useMemo(()=>({...design,elements:design.elements.map((layer)=>liveGeometry[layer.id]?{...layer,...liveGeometry[layer.id]}:layer)}),[design,liveGeometry]);
   const previewMediaType = templatePreviewMediaType({
     condition,
@@ -839,24 +870,22 @@ export const OverlayTemplateEditor = ({
     return { field, operator: 'exists', value: true };
   };
   const save = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || saving) return;
     const firstField = condition.sections[0]?.rules[0]?.field;
-    await onSave({
-      name: name.trim(),
-      description: description.trim(),
-      type: firstField ?? 'generic',
-      tags: tags
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-      enabled,
-      condition: condition.sections.length ? condition : undefined,
-      conditionSummary: condition.sections.length
-        ? `${condition.sections.length} condition ${condition.sections.length === 1 ? 'section' : 'sections'}`
-        : 'Always apply',
-      accent: template?.accent ?? '#f3ad32',
-      design,
-    });
+    setSaving(true);
+    setSaveStatus('Saving overlay template…');
+    try {
+      await onSave({
+        name: name.trim(), description: description.trim(), type: firstField ?? 'generic',
+        tags: tags.split(',').map((tag) => tag.trim()).filter(Boolean), enabled,
+        condition: condition.sections.length ? condition : undefined,
+        conditionSummary: condition.sections.length ? `${condition.sections.length} condition ${condition.sections.length === 1 ? 'section' : 'sections'}` : 'Always apply',
+        accent: template?.accent ?? '#f3ad32', design,
+      });
+    } catch (error) {
+      setSaveStatus(error instanceof Error ? error.message : 'Unable to save the overlay template.');
+      setSaving(false);
+    }
   };
   return (
     <div className="modal-backdrop">
@@ -918,7 +947,7 @@ export const OverlayTemplateEditor = ({
             <button
               className="icon-button"
               aria-label="Close overlay editor"
-              onClick={onClose}
+              onClick={requestClose}
             >
               ×
             </button>
@@ -1538,17 +1567,30 @@ export const OverlayTemplateEditor = ({
           )}
         </section>
         <footer className="modal-actions">
-          <button className="button secondary" onClick={onClose}>
+          {saveStatus && <p className="field-help" role="status">{saveStatus}</p>}
+          <button className="button secondary" disabled={saving} onClick={requestClose}>
             Cancel
           </button>
           <button
             className="button primary"
-            disabled={!name.trim()}
+            disabled={!name.trim() || saving}
             onClick={() => void save()}
           >
-            Save template
+            {saving ? 'Saving…' : 'Save template'}
           </button>
         </footer>
+        {confirmDiscard && (
+          <div className="modal-backdrop nested-modal">
+            <section className="poster-modal reset-modal" role="alertdialog" aria-modal="true" aria-labelledby="discard-overlay-title">
+              <h2 id="discard-overlay-title">Discard unsaved changes?</h2>
+              <p>Your template changes have not been saved.</p>
+              <footer className="modal-actions">
+                <button className="button secondary" onClick={() => setConfirmDiscard(false)}>Keep editing</button>
+                <button className="button danger" onClick={onClose}>Discard changes</button>
+              </footer>
+            </section>
+          </div>
+        )}
       </section>
     </div>
   );
