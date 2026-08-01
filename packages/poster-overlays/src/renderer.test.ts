@@ -220,6 +220,42 @@ test('renders a text layer background fill and rounded shape with the saved text
   assert.ok(pixel[2]! < 40);
 });
 
+test('renders saved text stroke and drop shadow styling', async () => {
+  const styled = template({
+    condition: { sections: [] },
+    design: {
+      ...template().design,
+      elements: [
+        {
+          ...template().design.elements[1]!,
+          properties: {
+            ...template().design.elements[1]!.properties,
+            textStrokeColor: '#ff0000',
+            textStrokeWidth: 12,
+            textShadowColor: '#00ff00',
+            textShadowOpacity: 100,
+            textShadowBlur: 8,
+            textShadowOffsetX: 20,
+            textShadowOffsetY: 20,
+          },
+        },
+      ],
+    },
+  });
+  const plain = template({
+    condition: { sections: [] },
+    design: { ...template().design, elements: [template().design.elements[1]!] },
+  });
+  const poster = await basePoster();
+  const renderer = new NativeOverlayRenderer();
+  const [styledResult, plainResult] = await Promise.all([
+    renderer.render(poster, [styled], {}),
+    renderer.render(poster, [plain], {}),
+  ]);
+  assert.notDeepEqual(styledResult.bytes, plainResult.bytes);
+  assert.deepEqual(styledResult.appliedTemplateIds, ['rating']);
+});
+
 test('skips disabled, condition-mismatched, missing-variable, and unsupported layers', async () => {
   const missingVariable = template({
     id: 'missing-variable',

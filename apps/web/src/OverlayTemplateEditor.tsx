@@ -1371,6 +1371,16 @@ export const OverlayTemplateEditor = ({
                         Grayscale
                       </label>
                     )}
+                    {selected.type === 'raster' && (
+                      <label>
+                        Image fit
+                        <select value={String(selected.properties.fit ?? 'contain')} onChange={(e) => updateLayer({}, { fit: e.target.value })}>
+                          <option value="contain">Contain</option>
+                          <option value="cover">Cover / crop</option>
+                          <option value="fill">Stretch to fill</option>
+                        </select>
+                      </label>
+                    )}
                     <OpacityControl
                       label="Opacity"
                       value={Number(selected.properties.opacity ?? 100)}
@@ -1687,6 +1697,32 @@ const Typography = ({
       value={Number(selected.properties.opacity ?? 100)}
       onChange={(value) => update({}, { opacity: value })}
     />
+    <fieldset className="nested-editor">
+      <legend>Text stroke</legend>
+      <div className="two-field">
+        <label>
+          Color
+          <input type="color" value={String(selected.properties.textStrokeColor ?? '#000000')} onChange={(e) => update({}, { textStrokeColor: e.target.value })} />
+        </label>
+        <label>
+          Width
+          <input type="number" min="0" max="40" value={Number(selected.properties.textStrokeWidth ?? 0)} onChange={(e) => update({}, { textStrokeWidth: Number(e.target.value) })} />
+        </label>
+      </div>
+    </fieldset>
+    <fieldset className="nested-editor">
+      <legend>Text shadow</legend>
+      <label>
+        Color
+        <input type="color" value={String(selected.properties.textShadowColor ?? '#000000')} onChange={(e) => update({}, { textShadowColor: e.target.value })} />
+      </label>
+      <OpacityControl label="Shadow opacity" value={Number(selected.properties.textShadowOpacity ?? 0)} onChange={(value) => update({}, { textShadowOpacity: value })} />
+      <div className="three-field">
+        <label>Horizontal<input type="number" min="-100" max="100" value={Number(selected.properties.textShadowOffsetX ?? 0)} onChange={(e) => update({}, { textShadowOffsetX: Number(e.target.value) })} /></label>
+        <label>Vertical<input type="number" min="-100" max="100" value={Number(selected.properties.textShadowOffsetY ?? 0)} onChange={(e) => update({}, { textShadowOffsetY: Number(e.target.value) })} /></label>
+        <label>Blur<input type="number" min="0" max="100" value={Number(selected.properties.textShadowBlur ?? 0)} onChange={(e) => update({}, { textShadowBlur: Number(e.target.value) })} /></label>
+      </div>
+    </fieldset>
     <FillAndShape selected={selected} update={update} />
   </>
 );

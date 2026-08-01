@@ -147,6 +147,20 @@ const textSvg = (
   const fontSize = number(layer, 'fontSize', 48, 1, 500) * scale;
   const opacity = number(layer, 'opacity', 100, 0, 100) / 100;
   const fill = color(string(layer, 'color', '#ffffff'), '#ffffff');
+  const textStroke = color(
+    string(layer, 'textStrokeColor', '#000000'),
+    '#000000'
+  );
+  const textStrokeWidth =
+    number(layer, 'textStrokeWidth', 0, 0, 40) * scale;
+  const shadowColor = color(
+    string(layer, 'textShadowColor', '#000000'),
+    '#000000'
+  );
+  const shadowOpacity = number(layer, 'textShadowOpacity', 0, 0, 100) / 100;
+  const shadowBlur = number(layer, 'textShadowBlur', 0, 0, 100) * scale;
+  const shadowX = number(layer, 'textShadowOffsetX', 0, -100, 100) * scale;
+  const shadowY = number(layer, 'textShadowOffsetY', 0, -100, 100) * scale;
   const family = xml(string(layer, 'fontFamily', 'Arial'));
   const weight =
     string(layer, 'fontWeight', 'normal') === 'bold' ? 'bold' : 'normal';
@@ -170,8 +184,11 @@ const textSvg = (
     'transparent'
   );
   const strokeWidth = number(layer, 'borderWidth', 0, 0) * scale;
+  const shadow = shadowOpacity > 0
+    ? `<defs><filter id="text-shadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="${shadowX}" dy="${shadowY}" stdDeviation="${shadowBlur}" flood-color="${shadowColor}" flood-opacity="${shadowOpacity}"/></filter></defs>`
+    : '';
   return Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${geometry.width}" height="${geometry.height}"><path d="${roundedPath(geometry.width, geometry.height, radii)}" fill="${background}" fill-opacity="${backgroundOpacity}" stroke="${stroke}" stroke-width="${strokeWidth}"/><text x="${anchor.x}" y="50%" dominant-baseline="middle" text-anchor="${anchor.anchor}" font-family="${family}" font-size="${fontSize}" font-weight="${weight}" font-style="${style}" fill="${fill}" opacity="${opacity}">${xml(value)}</text></svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${geometry.width}" height="${geometry.height}">${shadow}<path d="${roundedPath(geometry.width, geometry.height, radii)}" fill="${background}" fill-opacity="${backgroundOpacity}" stroke="${stroke}" stroke-width="${strokeWidth}"/><text x="${anchor.x}" y="50%" dominant-baseline="middle" text-anchor="${anchor.anchor}" font-family="${family}" font-size="${fontSize}" font-weight="${weight}" font-style="${style}" fill="${fill}" stroke="${textStroke}" stroke-width="${textStrokeWidth}" paint-order="stroke fill" opacity="${opacity}"${shadowOpacity > 0 ? ' filter="url(#text-shadow)"' : ''}>${xml(value)}</text></svg>`
   );
 };
 
@@ -589,7 +606,11 @@ export class NativeOverlayRenderer {
             let pipeline = sharp(asset).resize({
               width: placement.width,
               height: placement.height,
-              fit: 'contain',
+              fit: string(layer, 'fit', 'contain') === 'cover'
+                ? 'cover'
+                : string(layer, 'fit', 'contain') === 'fill'
+                  ? 'fill'
+                  : 'contain',
             });
             if (layer.type === 'svg' && layer.properties.grayscale === true)
               pipeline = pipeline.grayscale().tint('#ffffff');

@@ -39,11 +39,11 @@ This registry is the implementation checklist for the complete poster subsystem.
 - [x] 1000×1500 canvas, zoom, pan, selection, drag, resize, snap guides, undo/redo
 - [x] Layer add/duplicate/delete/show/hide/lock/reorder controls
 - [ ] Text: value, font family/file, size, weight, style, color, opacity, alignment, stroke, shadow, rotation, position, dimensions (all except font upload, stroke, and shadow implemented)
-- [ ] Variable text: segmented literal/variable content, date formats, fallbacks, grouped variables (segments and date formats implemented)
+- [x] Variable text: segmented literal/variable content, date formats, strict missing-value skip behavior, and grouped layers
 - [x] Tile: fill, border, individual/locked corner radii, opacity, sizing and position
-- [ ] Raster image: upload/asset selection, fit, opacity, rotation, sizing and position
+- [x] Raster image: upload/asset selection, contain/cover/fill fit, opacity, rotation, sizing and position
 - [ ] SVG: built-in/custom asset, fill/stroke, grayscale, opacity, rotation, sizing and position (path, grayscale, opacity, and geometry implemented)
-- [ ] Mapped icon: source variable, default icon, value-to-icon mappings, add/edit/remove mapping (source, mappings, layout, sizing, spacing, limits, and grid columns implemented)
+- [x] Mapped icon: source variable, default icon, value-to-icon mappings, add/edit/remove mapping, layout, sizing, spacing, limits, and grid columns
 - [ ] Application conditions: AND/OR sections, add/remove section and rule, operators, typed values, tags, labels, collections (full field list and typed boolean/numeric/media/resolution/live-collection inputs implemented; connected tag/label discovery pending)
 - [x] Preview selection with other overlays and saved layer render order
 - [ ] Validation, unsaved-changes warning, save, cancel, import/export fidelity

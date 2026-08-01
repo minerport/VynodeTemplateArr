@@ -284,6 +284,9 @@ export const OverlayDesignPreview = ({
                 style={{
                   ...style,
                   opacity: Number(layer.properties.opacity ?? 100) / 100,
+                  objectFit: String(
+                    layer.properties.fit ?? 'contain'
+                  ) as React.CSSProperties['objectFit'],
                   filter:
                     layer.type === 'svg' && layer.properties.grayscale
                       ? 'grayscale(1)'
@@ -673,6 +676,16 @@ export const OverlayDesignPreview = ({
                 fontSize: canvasUnit(
                   Math.max(7, Number(layer.properties.fontSize ?? 60))
                 ),
+                WebkitTextStrokeColor: String(
+                  layer.properties.textStrokeColor ?? '#000000'
+                ),
+                WebkitTextStrokeWidth: canvasUnit(
+                  Number(layer.properties.textStrokeWidth ?? 0)
+                ),
+                textShadow:
+                  Number(layer.properties.textShadowOpacity ?? 0) > 0
+                    ? `${canvasUnit(Number(layer.properties.textShadowOffsetX ?? 0))} ${canvasUnit(Number(layer.properties.textShadowOffsetY ?? 0))} ${canvasUnit(Number(layer.properties.textShadowBlur ?? 0))} color-mix(in srgb, ${String(layer.properties.textShadowColor ?? '#000000')} ${Number(layer.properties.textShadowOpacity ?? 0)}%, transparent)`
+                    : undefined,
                 backgroundColor: `color-mix(in srgb, ${String(
                   layer.properties.fillColor ?? '#000000'
                 )} ${Number(layer.properties.fillOpacity ?? 0)}%, transparent)`,
