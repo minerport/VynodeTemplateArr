@@ -54,6 +54,8 @@ import { randomUUID } from 'node:crypto';
 import type {
   CollectionPreviewResult,
   DashboardCollectionStatistic,
+  DashboardJobKind,
+  DashboardJobStatus,
   DashboardSummary,
   ManagedCollection,
 } from '@vynode/contracts';
@@ -1003,6 +1005,10 @@ export const createProductionRuntime = async (
       () => plexServerRepository.peek()?.machineIdentifier
     );
     await collectionJobs.resume();
+    const dashboardHistory = new SqliteJsonRepository<{
+      statuses: Partial<Record<DashboardJobKind, DashboardJobStatus>>;
+    }>(storage, 'dashboard-job-history');
+    if (!dashboardHistory.get('terminal')) dashboardHistory.put('terminal', { statuses: {} });
     const dashboardJobs = new DashboardJobService(
       {
         async items(kind) {
@@ -1029,7 +1035,16 @@ export const createProductionRuntime = async (
           return;
         },
       },
-      () => new Date()
+      () => new Date(),
+      {
+        load: () => structuredClone(dashboardHistory.get('terminal')!.value.statuses),
+        save: (kind, status) => {
+          const current = dashboardHistory.get('terminal')!;
+          dashboardHistory.put('terminal', {
+            statuses: { ...current.value.statuses, [kind]: structuredClone(status) },
+          }, current.revision);
+        },
+      }
     );
     const executeWatchlists = async (signal: AbortSignal) => {
       const settings = await watchlists.service.get();

@@ -77,3 +77,22 @@ test('dashboard jobs can synchronize one selected collection without processing 
   assert.deepEqual(processed, ['shows']);
   assert.equal(service.status('collections').totalItems, 1);
 });
+
+test('dashboard terminal history survives service reconstruction', async () => {
+  const statuses: Record<string, ReturnType<DashboardJobService['status']>> = {};
+  const history = {
+    load: () => structuredClone(statuses),
+    save: (kind: string, status: ReturnType<DashboardJobService['status']>) => { statuses[kind] = structuredClone(status); },
+  };
+  const executor = {
+    async items() { return []; },
+    async process() { return { outcome: 'success' as const, durationMs: 1 }; },
+    async cleanup() {},
+  };
+  const first = new DashboardJobService(executor, () => new Date('2026-08-01T12:00:00Z'), history);
+  await first.start('collections');
+  await settle();
+  const restored = new DashboardJobService(executor, () => new Date('2026-08-01T12:05:00Z'), history);
+  assert.equal(restored.status('collections').phase, 'completed');
+  assert.equal(restored.status('collections').completedAt, '2026-08-01T12:00:00.000Z');
+});

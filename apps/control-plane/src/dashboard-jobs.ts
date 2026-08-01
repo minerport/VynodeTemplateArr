@@ -28,6 +28,11 @@ type ActiveRun = {
   controller: AbortController;
 };
 
+export interface DashboardJobHistoryRepository {
+  load(): Partial<Record<DashboardJobKind, DashboardJobStatus>>;
+  save(kind: DashboardJobKind, status: DashboardJobStatus): void;
+}
+
 const activePhases = new Set(['queued', 'setup', 'processing', 'cleanup', 'cancelling']);
 
 export class DashboardJobService {
@@ -36,8 +41,13 @@ export class DashboardJobService {
 
   public constructor(
     private readonly executor: DashboardJobExecutor,
-    private readonly now: () => Date
-  ) {}
+    private readonly now: () => Date,
+    private readonly history?: DashboardJobHistoryRepository
+  ) {
+    for (const [kind, status] of Object.entries(history?.load() ?? {})) {
+      if (status) this.last.set(kind as DashboardJobKind, status);
+    }
+  }
 
   public status(kind: DashboardJobKind): DashboardJobStatus {
     const active = this.runs.get(kind)?.status;
@@ -206,6 +216,7 @@ export class DashboardJobService {
       ...(message ? { message } : {}),
     };
     this.last.set(kind, status);
+    this.history?.save(kind, status);
     this.runs.delete(kind);
   }
 }
