@@ -85,15 +85,37 @@ add(
   `${unresolvedParity.length} unresolved parity row(s)`
 );
 
+const posterParity = await text('docs/posters-parity-registry.md');
+const uncheckedPosterRequirements = posterParity
+  .split(/\r?\n/)
+  .filter((line) => /^- \[ \]/.test(line));
+add(
+  'Original-app parity',
+  'Every poster and overlay requirement is verified',
+  uncheckedPosterRequirements.length === 0,
+  `${uncheckedPosterRequirements.length} unchecked poster/overlay requirement(s)`
+);
+
+const pageRegistry = await text('docs/main-page-registry.md');
+const incompletePageRows = pageRegistry
+  .split(/\r?\n/)
+  .filter((line) => /^\| `\//.test(line))
+  .filter((line) => /\b(pending|incomplete|not implemented|stub)\b/i.test(line));
+add(
+  'Application routes',
+  'Every exposed route has its production adapters',
+  incompletePageRows.length === 0,
+  `${incompletePageRows.length} route(s) still describe production gaps`
+);
+
 const integrations = await text('docs/integration-parity.md');
 const incompleteIntegrationRows = integrations
   .split(/\r?\n/)
-  .filter((line) => /^\| [A-Za-z]/.test(line))
-  .filter((line) =>
-    /incomplete|UI only|Not yet audited|Finish |Implement |remaining|remain before|remain\./i.test(
-      line
-    )
-  );
+  .filter((line) => /^\| [A-Za-z]/.test(line) && !/^\| Integration or source/.test(line))
+  .filter((line) => {
+    const currentState = line.split('|')[3]?.trim() ?? '';
+    return !/^(Complete|Documented exception)\b/i.test(currentState);
+  });
 add(
   'Integrations',
   'Every exposed integration has production execution and validation',
