@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { mkdir, open, rm } from 'node:fs/promises';
 import { delimiter, isAbsolute, resolve } from 'node:path';
+import { isIP } from 'node:net';
 
 export interface ProductionConfiguration {
   dataDirectory: string;
@@ -19,6 +20,21 @@ const booleanValue = (value: string | undefined, fallback: boolean) => {
   if (value === 'true') return true;
   if (value === 'false') return false;
   throw new Error('Boolean environment values must be "true" or "false".');
+};
+
+const isPrivateNetworkHost = (hostname: string): boolean => {
+  const normalized = hostname.toLowerCase();
+  if (['localhost', '127.0.0.1', '::1'].includes(normalized)) return true;
+  if (isIP(normalized) === 4) {
+    const [first = 0, second = 0] = normalized.split('.').map(Number);
+    return first === 10 ||
+      (first === 172 && second >= 16 && second <= 31) ||
+      (first === 192 && second === 168) ||
+      (first === 169 && second === 254);
+  }
+  if (isIP(normalized) === 6)
+    return normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('fe8') || normalized.startsWith('fe9') || normalized.startsWith('fea') || normalized.startsWith('feb');
+  return normalized.endsWith('.local');
 };
 
 export const loadProductionConfiguration = async (
@@ -44,9 +60,8 @@ export const loadProductionConfiguration = async (
   try { parsed = new URL(publicUrl); } catch { throw new Error('VYNODE_PUBLIC_URL must be a valid URL.'); }
   if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.pathname !== '/' || parsed.search || parsed.hash)
     throw new Error('VYNODE_PUBLIC_URL must be an HTTP(S) origin without credentials, path, query, or fragment.');
-  const loopback = ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname);
-  if (parsed.protocol !== 'https:' && !loopback)
-    throw new Error('VYNODE_PUBLIC_URL must use HTTPS unless it is loopback-only.');
+  if (parsed.protocol !== 'https:' && !isPrivateNetworkHost(parsed.hostname))
+    throw new Error('VYNODE_PUBLIC_URL must use HTTPS unless it is a private-network address.');
   const masterKeyValue = environment.VYNODE_MASTER_KEY?.trim();
   if (!masterKeyValue) throw new Error('VYNODE_MASTER_KEY is required in production.');
   const masterKey = Buffer.from(masterKeyValue, 'base64');

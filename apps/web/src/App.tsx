@@ -915,12 +915,11 @@ export const App = () => {
       setState(next);
       setError('');
     } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : 'Unable to save setup progress.'
-      );
+      const message = saveError instanceof Error
+        ? saveError.message
+        : 'Unable to save setup progress.';
       await load();
+      setError(message);
     } finally {
       setBusy(false);
     }
@@ -933,8 +932,9 @@ export const App = () => {
       setState(await api.onboardingEvent(state.revision, { type: 'navigate', stage }));
       setError('');
     } catch (navigationError) {
-      setError(navigationError instanceof Error ? navigationError.message : 'Unable to open that setup section.');
+      const message = navigationError instanceof Error ? navigationError.message : 'Unable to open that setup section.';
       await load();
+      setError(message);
     } finally {
       setBusy(false);
     }
@@ -955,8 +955,9 @@ export const App = () => {
       setState(next);
       setError('');
     } catch (activationError) {
-      setError(activationError instanceof Error ? activationError.message : 'Activation failed. No setup settings were changed.');
+      const message = activationError instanceof Error ? activationError.message : 'Activation failed. No setup settings were changed.';
       await load();
+      setError(message);
     } finally {
       setBusy(false);
     }
