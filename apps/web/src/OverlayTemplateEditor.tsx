@@ -1094,6 +1094,12 @@ export const OverlayTemplateEditor = ({
             </div>
             {selected && (
               <div className="layer-order-buttons">
+                <button onClick={() => updateLayer({}, { hidden: selected.properties.hidden !== true })}>
+                  {selected.properties.hidden === true ? 'Show layer' : 'Hide layer'}
+                </button>
+                <button onClick={() => updateLayer({}, { locked: selected.properties.locked !== true })}>
+                  {selected.properties.locked === true ? 'Unlock layer' : 'Lock layer'}
+                </button>
                 <button onClick={() => move(1)}>Move up</button>
                 <button onClick={() => move(-1)}>Move down</button>
                 <button onClick={duplicateLayer}>Duplicate layer</button>
@@ -1160,8 +1166,10 @@ export const OverlayTemplateEditor = ({
                 ) : null;
               })}
               {[...design.elements]
+                .filter((layer) => layer.properties.hidden !== true)
                 .sort((a, b) => a.layerOrder - b.layerOrder)
                 .map((layer) => {
+                  if (layer.properties.locked === true) return null;
                   return (
                     <InteractivePosterLayer
                       key={layer.id}

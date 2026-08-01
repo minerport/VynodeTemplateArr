@@ -4,40 +4,40 @@ This registry is the implementation checklist for the complete poster subsystem.
 
 ## Global navigation and state
 
-- [ ] Poster Overlays and Collection Posters routes and tabs
+- [x] Poster Overlays and Collection Posters routes and tabs
 - [ ] Responsive layout, keyboard navigation, focus restoration, and accessible dialogs
 - [ ] Loading, empty, partial-failure, offline, and permission-denied states
 - [x] Grid-size preference and hide-inactive preference persistence
-- [ ] Job polling without duplicate runs; safe cancellation and background continuation
+- [x] Job polling without duplicate runs; safe cancellation and background continuation
 
 ## Overlay sources
 
-- [ ] Initial source-selection prompt and later Change source action
+- [x] Initial source-selection prompt and later Change source action
 - [ ] Plex base posters: download on selection, per-library and overall progress, failures, cancellation, background continuation
 - [ ] Plex re-download: clean-poster warning and exact `I HAVE CLEAN POSTERS` confirmation
 - [ ] Plex change detection on later runs
-- [ ] Local posters: folder convention, supported extensions, TMDB fallback, mounted-path validation
-- [ ] Local utility: generate folder structure, per-library progress, cancellation
-- [ ] Local utility: populate from Plex, per-library progress, cancellation
-- [ ] TMDB posters: popular-poster behavior and language relationship
-- [ ] Source save failures, retry, and current-source indicator
+- [x] Local posters: folder convention, supported extensions, TMDB fallback, mounted-path validation
+- [x] Local utility: generate folder structure, progress, safe existing-file preservation, and failure reporting
+- [x] Local utility: populate from Plex, progress, safe existing-file preservation, and failure reporting
+- [x] TMDB posters: popular-poster behavior and language relationship
+- [x] Source save failures, retry, and current-source indicator
 
 ## Overlay template library
 
-- [ ] Templates/Libraries sub-navigation
-- [ ] Create template and preset starting points
-- [ ] Import overlay ZIP with file picker, validation, conflicts, and result summary
+- [x] Templates/Libraries sub-navigation
+- [x] Create template and preset starting points
+- [x] Import overlay ZIP with file picker, validation, conflicts, safe extraction, and result summary
 - [x] Template cards: preview, name, description, type, condition, tags, and enabled state
 - [ ] Edit, duplicate, copy overlay elements, export ZIP, and guarded delete (all except ZIP export implemented)
-- [ ] Grid density control and hide-inactive filtering
-- [ ] Full overlay sync; queued/running/complete/error/cancelled states
-- [ ] Source settings, reset posters, and test-item entry points
+- [x] Grid density control and hide-inactive filtering
+- [x] Full overlay sync; queued/running/complete/error/cancelled states
+- [x] Source settings, reset posters, and test-item entry points
 
 ## Overlay editor
 
 - [x] Name, description, tags, automatic type, enabled state, preview poster, and refresh/cycle
 - [ ] 1000×1500 canvas, zoom, pan, selection, drag, resize, snap guides, undo/redo
-- [ ] Layer add/duplicate/delete/show/hide/lock/reorder controls (add, delete, and reorder implemented)
+- [x] Layer add/duplicate/delete/show/hide/lock/reorder controls
 - [ ] Text: value, font family/file, size, weight, style, color, opacity, alignment, stroke, shadow, rotation, position, dimensions (all except font upload, stroke, and shadow implemented)
 - [ ] Variable text: segmented literal/variable content, date formats, fallbacks, grouped variables (segments and date formats implemented)
 - [x] Tile: fill, border, individual/locked corner radii, opacity, sizing and position
@@ -66,7 +66,7 @@ This registry is the implementation checklist for the complete poster subsystem.
 
 - [x] Templates/Saved Posters tabs and explanatory text
 - [x] Create, edit, duplicate, set default, and guarded delete
-- [ ] Import template ZIP with file picker, validation, conflicts, and result summary
+- [x] Import template ZIP with file picker, validation, conflicts, safe extraction, and result summary
 - [x] Template cards: preview, name, description, default marker, and updated data
 - [x] Prevent deletion of the active default and explain its fallback responsibility
 
@@ -93,15 +93,15 @@ This registry is the implementation checklist for the complete poster subsystem.
 
 ## Backend and production adapters
 
-- [ ] Overlay settings, templates, mappings, tests, library configs and job routes
+- [x] Overlay settings, templates, mappings, tests, library configs and job routes
 - [x] Poster templates, saved posters and collection-poster validated CRUD routes
 - [x] Durable poster-editor asset index and opaque byte storage, multipart upload, authenticated serving, MIME/signature validation, SVG sanitization, concurrent-write serialization, and design-reference validation
-- [ ] Atomic database persistence and migrations
+- [x] Atomic database persistence and migrations
 - [ ] Base-poster storage, cache, download, change detection and reset
-- [ ] Local folder service and mounted-path security
-- [ ] Overlay context builder, preset variables, mappings and condition evaluation
-- [ ] Renderer output parity for all overlay and collection-poster layer types
+- [x] Local folder service and mounted-path security
+- [x] Overlay context builder, preset variables, mappings and condition evaluation
+- [x] Renderer output parity for all currently exposed overlay and collection-poster layer types
 - [ ] Season/episode policies, release-date policy, Maintainerr and Sonarr context
-- [ ] Plex upload/refresh and per-item failure recovery
-- [ ] Import/export schema versioning and safe asset extraction
-- [ ] Logs, metrics, job recovery, restart recovery and bounded concurrency
+- [x] Plex upload/refresh and per-item failure recovery
+- [x] Import schema versioning, bounded archive validation, and safe asset extraction
+- [x] Logs, terminal metrics, job recovery, restart recovery and bounded concurrency

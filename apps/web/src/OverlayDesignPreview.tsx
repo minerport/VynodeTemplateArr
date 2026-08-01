@@ -237,6 +237,7 @@ export const OverlayDesignPreview = ({
         />
       )}
       {[...template.design.elements]
+        .filter((layer) => layer.properties.hidden !== true)
         .sort((left, right) => left.layerOrder - right.layerOrder)
         .map((layer) => {
           const style: React.CSSProperties = {

@@ -120,6 +120,26 @@ test('renders ordered tile, text, and variable layers to bounded WebP output', a
   assert.deepEqual(result.skippedElements, []);
 });
 
+test('does not render hidden layers or report them as failures', async () => {
+  const hidden = template({
+    design: {
+      ...template().design,
+      elements: template().design.elements.map((layer) => ({
+        ...layer,
+        properties: { ...layer.properties, hidden: true },
+      })),
+    },
+  });
+  const result = await new NativeOverlayRenderer().render(
+    await basePoster(),
+    [hidden],
+    { rating: 8.5, imdbRating: 8.4 }
+  );
+  assert.deepEqual(result.appliedTemplateIds, []);
+  assert.deepEqual(result.skippedTemplateIds, ['rating']);
+  assert.deepEqual(result.skippedElements, []);
+});
+
 test('skips the entire template when any rendered variable is missing', async () => {
   const hidden = await new NativeOverlayRenderer().render(
     await basePoster(),

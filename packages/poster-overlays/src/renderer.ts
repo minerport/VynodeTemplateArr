@@ -542,6 +542,7 @@ export class NativeOverlayRenderer {
           left.layerOrder - right.layerOrder || left.id.localeCompare(right.id)
       )) {
         this.assertActive(signal);
+        if (layer.properties.hidden === true) continue;
         const placement = geometry.get(layer.id)!;
         let input: Buffer | undefined;
         if (layer.type === 'tile') input = tileSvg(layer, placement);
