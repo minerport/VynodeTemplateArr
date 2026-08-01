@@ -55,6 +55,8 @@ export const PosterOverlaysPage = () => {
   const [importBusy, setImportBusy] = useState(false);
   const [libraryMutationBusy, setLibraryMutationBusy] = useState<string>();
   const [localUtilityBusy, setLocalUtilityBusy] = useState<'folders' | 'populate'>();
+  const [replacePlexBases, setReplacePlexBases] = useState(false);
+  const [cleanPosterConfirmation, setCleanPosterConfirmation] = useState('');
   const exportTemplate = (template: OverlayTemplateSummary) => {
     const anchor = document.createElement('a');
     anchor.href = `/api/posters/overlays/templates/${encodeURIComponent(template.id)}/export`;
@@ -86,10 +88,15 @@ export const PosterOverlaysPage = () => {
   const saveSource = async () => {
     setMessage('Saving poster source…');
     try {
-      const result = await api.savePosterSource(workspace.source.revision, selectedSource);
+      let result = await api.savePosterSource(workspace.source.revision, selectedSource);
+      if (selectedSource === 'plex' && replacePlexBases) {
+        result = await api.downloadCleanPlexBasePosters(cleanPosterConfirmation);
+      }
       setWorkspace(result);
       setSourceOpen(false);
-      setMessage('Poster source saved.');
+      setReplacePlexBases(false);
+      setCleanPosterConfirmation('');
+      setMessage(selectedSource === 'plex' && replacePlexBases ? 'Clean Plex poster download started. Progress is shown on each library.' : 'Poster source saved.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to save poster source.');
     }
@@ -326,7 +333,8 @@ export const PosterOverlaysPage = () => {
         <div className="modal-heading"><div><p className="eyebrow">Overlay foundation</p><h2 id="source-title">Choose poster source</h2><p>Select the clean base poster Vynode should use before applying overlays.</p></div><button className="icon-button" aria-label="Close poster source dialog" onClick={() => setSourceOpen(false)}>×</button></div>
         <div className="source-choice-list">{(['plex', 'local', 'tmdb'] as const).map((source) => <label className={selectedSource === source ? 'selected' : ''} key={source}><input type="radio" name="poster-source" checked={selectedSource === source} onChange={() => setSelectedSource(source)} /><span><strong>{sourceCopy[source].name}</strong><small>{sourceCopy[source].description}</small>{source === 'local' && <code>/config/plex-base-posters/&#123;LibraryName&#125;-&#123;ID&#125;/&#123;Title&#125; (&#123;Year&#125;) tmdb-&#123;TMDBID&#125;/poster.jpg</code>}</span>{workspace.source.source === source && <em>Current</em>}</label>)}</div>
         {selectedSource === 'local' && <div className="utility-panel"><strong>Local poster utilities</strong><p>Supported: poster.jpg, poster.png, and any JPG, PNG, or WebP image. Existing images are never overwritten.</p><button className="button secondary" disabled={Boolean(localUtilityBusy)} onClick={() => void runLocalUtility('folders')}>{localUtilityBusy === 'folders' ? 'Generating…' : 'Generate folder structure'}</button><button className="button secondary" disabled={Boolean(localUtilityBusy)} onClick={() => void runLocalUtility('populate')}>{localUtilityBusy === 'populate' ? 'Populating…' : 'Populate from Plex'}</button></div>}
-        <footer className="modal-actions"><button className="button secondary" onClick={() => setSourceOpen(false)}>Cancel</button><button className="button primary" onClick={() => void saveSource()}>Save source</button></footer>
+        {selectedSource === 'plex' && <div className="utility-panel"><label><input type="checkbox" checked={replacePlexBases} onChange={(event) => { setReplacePlexBases(event.target.checked); if (!event.target.checked) setCleanPosterConfirmation(''); }} /> <strong>Re-download clean Plex posters</strong></label><p>This replaces every preserved base with the poster currently in Plex. Remove overlays in Plex first; otherwise they become part of the new base.</p>{replacePlexBases && <label><span>Type <strong>I HAVE CLEAN POSTERS</strong> to confirm</span><input value={cleanPosterConfirmation} onChange={(event) => setCleanPosterConfirmation(event.target.value)} autoComplete="off" /></label>}</div>}
+        <footer className="modal-actions"><button className="button secondary" onClick={() => setSourceOpen(false)}>Cancel</button><button className="button primary" disabled={selectedSource === 'plex' && replacePlexBases && cleanPosterConfirmation !== 'I HAVE CLEAN POSTERS'} onClick={() => void saveSource()}>{selectedSource === 'plex' && replacePlexBases ? 'Save and re-download' : 'Save source'}</button></footer>
       </section></div>}
       {selectedLibrary && <div className="modal-backdrop" role="presentation"><section className="poster-modal library-config-modal" role="dialog" aria-modal="true" aria-labelledby="library-config-title">
         <div className="modal-heading"><div><p className="eyebrow">{selectedLibrary.type === 'movie' ? 'Movie library' : 'TV library'}</p><h2 id="library-config-title">Configure overlays — {selectedLibrary.name}</h2><p>Choose overlays and their render order. The top overlay renders above every overlay below it.</p></div><button className="icon-button" aria-label="Close library configuration" onClick={() => setSelectedLibrary(undefined)}>×</button></div>

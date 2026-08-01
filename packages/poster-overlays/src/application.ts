@@ -270,7 +270,14 @@ export class OverlayApplicationService {
       if (!preserved || digest(preserved) !== previous.basePosterHash) {
         throw new Error('The preserved base poster is missing or corrupt.');
       }
-      renderBase = preserved;
+      const acquiredHash = digest(acquired.bytes);
+      const plexPosterChanged =
+        source === 'plex' &&
+        acquiredHash !== previous.basePosterHash &&
+        acquiredHash !== previous.lastAppliedHash;
+      renderBase = plexPosterChanged ? acquired.bytes : preserved;
+      if (plexPosterChanged)
+        await this.options.bases.put(previous.basePosterKey, acquired.bytes);
     }
     const context = await this.options.contexts.build(item, templates, {
       isPlaceholder: (item.labels ?? []).some((label) =>
@@ -331,7 +338,7 @@ export class OverlayApplicationService {
 
     const basePosterKey = previous?.basePosterKey ?? `base:${item.ratingKey}`;
     if (!previous) await this.options.bases.put(basePosterKey, acquired.bytes);
-    const basePosterHash = previous?.basePosterHash ?? digest(acquired.bytes);
+    const basePosterHash = digest(renderBase);
 
     await this.options.plex.uploadPoster(item.ratingKey, rendered.bytes, signal);
     await this.options.plex.setOverlayLabel(item.ratingKey, true, signal);

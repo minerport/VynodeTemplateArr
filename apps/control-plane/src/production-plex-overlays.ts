@@ -238,6 +238,33 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     return this.store.get();
   }
   async startAllLibraryJobs() { const workspace = await this.store.get(); if (this.#controllers.size || !workspace.libraries.length) return undefined; for (const library of workspace.libraries) await this.startLibraryJob(library.id); return this.store.get(); }
+  async startCleanBaseDownload() {
+    const workspace = await this.store.get();
+    if (this.#controllers.size || !workspace.libraries.length) return undefined;
+    for (const library of workspace.libraries) {
+      const controller = new AbortController();
+      this.#controllers.set(library.id, controller);
+      await this.store.updateLibraryRun(library.id, { status: 'processing', processedItems: 0, failedItems: 0 });
+      void this.#items(library.id, controller.signal)
+        .then((items) => this.#application.downloadCleanPlexBases(items, controller.signal))
+        .then((result) => this.store.updateLibraryRun(library.id, {
+          status: result.failed ? 'error' : 'complete',
+          processedItems: result.downloaded,
+          failedItems: result.failed,
+          lastAppliedItems: 0,
+          lastRestoredItems: 0,
+          lastSkippedItems: 0,
+          lastNoMatchItems: 0,
+          lastAppliedAt: new Date().toISOString(),
+        }))
+        .catch(() => this.store.updateLibraryRun(library.id, {
+          status: controller.signal.aborted ? 'idle' : 'error',
+          failedItems: controller.signal.aborted ? 0 : 1,
+        }))
+        .finally(() => this.#controllers.delete(library.id));
+    }
+    return this.store.get();
+  }
   async cancelLibraryJob(id: string) { const controller = this.#controllers.get(id); if (!controller) return undefined; controller.abort(); await this.store.updateLibraryRun(id, { status: 'cancelling' }); return this.store.get(); }
   async resetLibrary(id: string) { const library = (await this.store.get()).libraries.find((value) => value.id === id); if (!library || this.#controllers.has(id)) return undefined; const controller = new AbortController(); this.#controllers.set(id, controller); await this.store.updateLibraryRun(id, { status: 'processing' }); void this.#runLibrary(library, controller.signal, true).then((result) => this.#finish(id, result, true)).catch(() => this.store.updateLibraryRun(id, { status: controller.signal.aborted ? 'idle' : 'error', failedItems: controller.signal.aborted ? 0 : 1 })).finally(() => this.#controllers.delete(id)); return this.store.get(); }
   async searchItems(query: string, libraryId?: string): Promise<readonly PosterTestSearchItem[]> { const workspace = await this.store.get(); const normalized = query.trim().toLowerCase(); const results: PosterTestSearchItem[] = []; for (const library of workspace.libraries.filter((value) => !libraryId || value.id === libraryId)) for (const item of await this.#items(library.id)) { if (normalized && !item.title.toLowerCase().includes(normalized)) continue; results.push({ ratingKey: item.ratingKey, title: item.title, ...(item.year ? { year: item.year } : {}), type: item.mediaType, libraryId: item.libraryId, libraryName: item.libraryName, posterUrl: `/api/posters/overlays/items/${encodeURIComponent(item.ratingKey)}/poster` }); if (results.length >= 50) return results; } return results; }

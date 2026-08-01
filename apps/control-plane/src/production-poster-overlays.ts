@@ -47,6 +47,7 @@ export interface ProductionPosterOverlayOperations {
   applyItem(ratingKey: string): Promise<PosterOverlayWorkspace | undefined>;
   resetItem(ratingKey: string): Promise<PosterOverlayWorkspace | undefined>;
   plexLabels(): Promise<readonly string[]>;
+  startCleanBaseDownload(): Promise<PosterOverlayWorkspace | undefined>;
 }
 
 interface StoredOverlayWorkspace {
@@ -157,6 +158,7 @@ export class ProductionPosterOverlayStore {
   public applyItem(ratingKey: string) { return this.#operations?.applyItem(ratingKey) ?? Promise.resolve(undefined); }
   public resetItem(ratingKey: string) { return this.#operations?.resetItem(ratingKey) ?? Promise.resolve(undefined); }
   public plexLabels() { return this.#operations?.plexLabels() ?? Promise.resolve([]); }
+  public startCleanBaseDownload() { return this.#operations?.startCleanBaseDownload() ?? Promise.resolve(undefined); }
 
   public async saveSource(expectedRevision: number, source: PosterSource) {
     const current = this.#values.get('workspace')!.value.source;

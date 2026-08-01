@@ -44,6 +44,7 @@ const fixture = (
     failUpload?: boolean;
     critical?: boolean;
     coordinator?: PosterOperationCoordinator;
+    acquiredPosters?: readonly number[][];
   } = {}
 ) => {
   const bases = new Map<string, Uint8Array>();
@@ -52,6 +53,7 @@ const fixture = (
   const renderedFrom: number[][] = [];
   const renderedContexts: Readonly<Record<string, unknown>>[] = [];
   const labels: boolean[] = [];
+  let acquisitionIndex = 0;
   const repository: OverlayApplicationStateRepository = {
     async get(key) {
       return states.get(key);
@@ -66,7 +68,8 @@ const fixture = (
   const service = new OverlayApplicationService({
     acquisition: {
       async acquire(source) {
-        return { source, bytes: new Uint8Array([1, 2, 3]) };
+        const bytes = options.acquiredPosters?.[acquisitionIndex++] ?? [1, 2, 3];
+        return { source, bytes: new Uint8Array(bytes) };
       },
     },
     contexts: new OverlayContextBuilder(
@@ -202,6 +205,14 @@ test('does not replace the preserved base on repeated application', async () => 
     [1, 2, 3],
     [1, 2, 3],
   ]);
+});
+
+test('detects a newly selected clean Plex poster and replaces the preserved base', async () => {
+  const current = fixture({ acquiredPosters: [[1, 2, 3], [4, 5, 6]] });
+  await current.service.apply(items, templates, 'plex', 'en-US');
+  await current.service.apply(items, templates, 'plex', 'en-US');
+  assert.deepEqual([...current.bases.get('base:101')!], [4, 5, 6]);
+  assert.deepEqual(current.renderedFrom, [[1, 2, 3], [4, 5, 6]]);
 });
 
 test('restores the exact preserved base, removes the label, then clears state', async () => {

@@ -351,6 +351,11 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ expectedRevision, source }),
     }),
+  downloadCleanPlexBasePosters: (confirmation: string) =>
+    request<PosterOverlayWorkspace>('/api/posters/overlays/source/plex/download-clean-bases', {
+      method: 'POST',
+      body: JSON.stringify({ confirmation }),
+    }),
   generateLocalPosterFolders: () =>
     request<{ scanned: number; created: number; skippedExisting: number; skippedMissingTmdb: number; failed: number }>(
       '/api/posters/overlays/source/local/generate-folders',

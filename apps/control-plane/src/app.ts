@@ -598,6 +598,7 @@ export interface ControlPlaneDependencies {
       expectedRevision: number,
       source: PosterSource
     ): Promise<PosterOverlayWorkspace | undefined>;
+    startCleanBaseDownload?(): Promise<PosterOverlayWorkspace | undefined>;
     updateLibrary(
       id: string,
       input: {
@@ -1344,6 +1345,24 @@ export const createControlPlane = async (
       request.body
     );
   });
+
+  app.post<{ Body: { confirmation?: string } }>(
+    '/api/posters/overlays/source/plex/download-clean-bases',
+    async (request, reply) => {
+      if (request.body?.confirmation !== 'I HAVE CLEAN POSTERS')
+        return reply.code(400).send({
+          message: 'Type I HAVE CLEAN POSTERS exactly to replace preserved base posters.',
+        });
+      if (!dependencies.posterOverlays?.startCleanBaseDownload)
+        return reply.code(503).send({ message: 'Clean poster downloading is unavailable.' });
+      const workspace = await dependencies.posterOverlays.startCleanBaseDownload();
+      if (!workspace)
+        return reply.code(409).send({
+          message: 'A poster operation is already running or there are no Plex libraries to scan.',
+        });
+      return workspace;
+    }
+  );
   app.post<{ Params: { id: string } }>(
     '/api/posters/collections/templates/:id/duplicate',
     async (request, reply) => {
