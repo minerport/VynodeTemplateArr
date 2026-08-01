@@ -1198,6 +1198,7 @@ export const createProductionRuntime = async (
         },
       }
     );
+    jobsAndCache.startScheduler();
     const tautulliClientFromConfiguration = async () => {
       const configured = await integrationRepository.get('tautulli');
       if (!configured?.configured)
@@ -1402,6 +1403,7 @@ export const createProductionRuntime = async (
         return owner.tokenReference;
       },
       close() {
+        jobsAndCache.close();
         audit.append({
           action: 'runtime.stop',
           target: 'control-plane',

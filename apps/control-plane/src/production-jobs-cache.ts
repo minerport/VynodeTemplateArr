@@ -35,6 +35,7 @@ export class ProductionJobsAndCache {
   readonly #values: SqliteJsonRepository<StoredJobs>;
   readonly #controllers = new Map<string, AbortController>();
   readonly #cacheDirectories: Readonly<Record<string, string>>;
+  #scheduler: ReturnType<typeof setInterval> | undefined;
 
   public constructor(
     private readonly storage: VynodeSqliteStorage,
@@ -72,6 +73,24 @@ export class ProductionJobsAndCache {
   async #complete(id: string, outcome: 'success' | 'failed' | 'cancelled', message: string) { await this.#mutate((jobs) => { const index = jobs.findIndex((value) => value.id === id); if (index < 0) return; const current = jobs[index]!; const { startedAt: _startedAt, ...rest } = current; jobs[index] = { ...rest, running: false, lastCompletedAt: this.now().toISOString(), lastOutcome: outcome, lastMessage: message, nextExecutionTime: nextExecution(current.cronSchedule, this.now()) }; }); }
   public async cancel(id: string) { const controller = this.#controllers.get(id); if (!controller) return undefined; controller.abort(); return (await this.jobs()).find((value) => value.id === id); }
   public async schedule(id: string, cronSchedule: string) { let found = false; const jobs = await this.#mutate((values) => { const index = values.findIndex((value) => value.id === id); if (index < 0 || values[index]!.running) return; found = true; values[index] = { ...values[index]!, cronSchedule, nextExecutionTime: nextExecution(cronSchedule, this.now()) }; }); return found ? jobs.find((value) => value.id === id) : undefined; }
+  public async runDueJobs() {
+    const now = this.now().getTime();
+    const due = (await this.jobs()).filter((job) =>
+      !job.running && new Date(job.nextExecutionTime).getTime() <= now
+    );
+    await Promise.all(due.map((job) => this.run(job.id)));
+    return due.map((job) => job.id);
+  }
+  public startScheduler(intervalMilliseconds = 15_000) {
+    if (this.#scheduler) return;
+    this.#scheduler = setInterval(() => { void this.runDueJobs(); }, intervalMilliseconds);
+    this.#scheduler.unref?.();
+  }
+  public close() {
+    if (this.#scheduler) clearInterval(this.#scheduler);
+    this.#scheduler = undefined;
+    for (const controller of this.#controllers.values()) controller.abort();
+  }
   public async caches(): Promise<readonly CacheStatistic[]> { return Promise.all(Object.entries(this.#cacheDirectories).map(async ([id, directory]) => { const value = await directorySize(directory); return { id, name: id === 'images' ? 'Image metadata' : `${id.toUpperCase()} API`, hits: 0, misses: 0, keys: value.keys, keySizeBytes: 0, valueSizeBytes: value.bytes }; })); }
   public async flushCache(id: string) { const directory = this.#cacheDirectories[id]; if (!directory) return undefined; await rm(directory, { recursive: true, force: true }); await mkdir(directory, { recursive: true }); return (await this.caches()).find((value) => value.id === id); }
 }

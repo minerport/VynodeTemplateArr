@@ -69,6 +69,9 @@ test('builds the production control plane with durable onboarding and redacted d
     const restoredPolicy = await reopened.app.inject({ method: 'GET', url: '/api/fetching-policy' });
     assert.equal(restoredPolicy.json().revision, 1);
     assert.equal(restoredPolicy.json().letterboxdUsePlainHttp, true);
+    const restoredLogs = await reopened.app.inject({ method: 'GET', url: '/api/settings/logs' });
+    assert.equal(restoredLogs.statusCode, 200);
+    assert.ok(restoredLogs.json().results.some((entry: { label: string }) => entry.label === 'runtime.start'));
     await reopened.close();
   } finally {
     await rm(directory, { recursive: true, force: true });

@@ -48,6 +48,17 @@ test('persists production job schedules, outcomes, cancellation, and cache flush
 
     const restarted = new ProductionJobsAndCache(storage, directory, {});
     assert.equal((await restarted.jobs()).find((job) => job.id === 'plex-collections-sync')?.cronSchedule, '0 */20 * * * *');
+    const dueStorage = new VynodeSqliteStorage(join(directory, 'due.sqlite'));
+    let executions = 0;
+    let currentNow = new Date('2026-08-01T00:00:00.000Z');
+    const dueService = new ProductionJobsAndCache(dueStorage, directory, {
+      'plex-collections-sync': async () => { executions += 1; return 'Scheduled collections completed.'; },
+    }, () => currentNow);
+    currentNow = new Date('2026-08-02T00:00:00.000Z');
+    assert.deepEqual(await dueService.runDueJobs(), ['plex-collections-sync', 'overlay-application', 'watchlist-sync']);
+    await until(async () => executions === 1);
+    dueService.close();
+    dueStorage.close();
   } finally {
     storage.close();
     await rm(directory, { recursive: true, force: true });
