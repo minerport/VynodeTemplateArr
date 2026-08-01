@@ -77,7 +77,7 @@ This registry is the implementation checklist for the complete poster subsystem.
 - [x] Text: content, typography, color, opacity, alignment, stroke, shadow, rotation and geometry
 - [x] Image: validated upload/stored asset selection, contain/cover crop/fill fit, opacity, rotation and geometry
 - [ ] SVG/icon selection: search, category, color, opacity, rotation and geometry (validated durable SVG upload, active-content blocking, stored selection, preview, grayscale, rotation, and geometry implemented; catalog search/category/color/opacity remain)
-- [ ] Content grid: source, rows/columns, gaps, padding, item image/text options
+- [x] Content grid: collection-member source, rows/columns, gaps, padding, item image fit and optional position text
 - [x] Layer selection, add, duplicate, delete, show/hide, lock, and reorder
 - [x] Live preview, server validation, unsaved-changes warning, save and cancel
 

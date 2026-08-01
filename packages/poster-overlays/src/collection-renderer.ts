@@ -220,30 +220,39 @@ export class NativeCollectionPosterRenderer {
     const columns = Math.round(number(layer, 'columns', 3, 1, 8));
     const rows = Math.round(number(layer, 'rows', 2, 1, 8));
     const spacing = Math.round(number(layer, 'spacing', 24, 0, 100));
+    const padding = Math.round(number(layer, 'padding', 0, 0, 200));
     const radius = Math.round(number(layer, 'cornerRadius', 20, 0, 100));
     const count = Math.min(columns * rows, posters.length);
     if (!count) return undefined;
-    const width = Math.floor((layer.width - spacing * (columns - 1)) / columns);
-    const height = Math.floor((layer.height - spacing * (rows - 1)) / rows);
+    const width = Math.floor((layer.width - padding * 2 - spacing * (columns - 1)) / columns);
+    const height = Math.floor((layer.height - padding * 2 - spacing * (rows - 1)) / rows);
+    if (width < 1 || height < 1) return undefined;
     const tiles: OverlayOptions[] = [];
     for (let index = 0; index < count; index++) {
       this.active(signal);
-      const tile = await sharp(posters[index]!)
-        .resize(width, height, { fit: 'cover' })
-        .composite([
+      let tilePipeline = sharp(posters[index]!).resize(width, height, {
+        fit: String(layer.properties.imageFit ?? 'cover') === 'contain' ? 'contain' : 'cover',
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      });
+      const composites: OverlayOptions[] = [
           {
             input: Buffer.from(
               `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" rx="${radius}" fill="white"/></svg>`
             ),
             blend: 'dest-in',
           },
-        ])
-        .png()
-        .toBuffer();
+        ];
+      if (layer.properties.showItemText === true)
+        composites.push({
+          input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><text x="${width - 8}" y="${height - 8}" text-anchor="end" font-family="Arial" font-size="${number(layer, 'itemTextSize', 28, 8, 100)}" font-weight="bold" fill="${String(layer.properties.itemTextColor ?? '#ffffff')}">#${index + 1}</text></svg>`),
+          left: 0,
+          top: 0,
+        });
+      const tile = await tilePipeline.composite(composites).png().toBuffer();
       tiles.push({
         input: tile,
-        left: (index % columns) * (width + spacing),
-        top: Math.floor(index / columns) * (height + spacing),
+        left: padding + (index % columns) * (width + spacing),
+        top: padding + Math.floor(index / columns) * (height + spacing),
       });
     }
     return new Uint8Array(

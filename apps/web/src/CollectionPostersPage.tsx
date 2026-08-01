@@ -91,6 +91,7 @@ const PosterPreview = ({
                   ...style,
                   gridTemplateColumns: `repeat(${columns}, 1fr)`,
                   gap: `${Math.min(8, Number(item.properties.spacing ?? 24) / 8)}px`,
+                  padding: `${Math.min(20, Number(item.properties.padding ?? 0) / 6)}px`,
                 }}
               >
                 {Array.from({ length: Math.min(64, columns * rows) }).map(
@@ -102,7 +103,7 @@ const PosterPreview = ({
                         backgroundImage: `url("${posterPreviewSamples[mediaType][index % posterPreviewSamples[mediaType].length]!.imageUrl}")`,
                       }}
                       aria-label={`${posterPreviewSamples[mediaType][index % posterPreviewSamples[mediaType].length]!.title} example poster`}
-                    />
+                    >{item.properties.showItemText === true ? <b style={{ color: String(item.properties.itemTextColor ?? '#ffffff'), fontSize: `${Math.max(6, Number(item.properties.itemTextSize ?? 28) / 6)}px` }}>#{index + 1}</b> : null}</i>
                   )
                 )}
               </div>
@@ -1759,6 +1760,11 @@ export const CollectionPostersPage = () => {
                             }
                           />
                         </label>
+                        <label>Source<select value={String(selectedLayer.properties.source ?? 'collection-members')} onChange={(event) => updateLayer({}, { source: event.target.value })}><option value="collection-members">Collection members</option></select></label>
+                        <label>Padding<input type="number" min="0" max="200" value={Number(selectedLayer.properties.padding ?? 0)} onChange={(event) => updateLayer({}, { padding: Number(event.target.value) })} /></label>
+                        <label>Item image fit<select value={String(selectedLayer.properties.imageFit ?? 'cover')} onChange={(event) => updateLayer({}, { imageFit: event.target.value })}><option value="cover">Cover / crop</option><option value="contain">Contain</option></select></label>
+                        <label className="inline-check"><input type="checkbox" checked={selectedLayer.properties.showItemText === true} onChange={(event) => updateLayer({}, { showItemText: event.target.checked })} />Show item position text</label>
+                        {selectedLayer.properties.showItemText === true && <div className="two-field"><label>Text color<input type="color" value={String(selectedLayer.properties.itemTextColor ?? '#ffffff')} onChange={(event) => updateLayer({}, { itemTextColor: event.target.value })} /></label><label>Text size<input type="number" min="8" max="100" value={Number(selectedLayer.properties.itemTextSize ?? 28)} onChange={(event) => updateLayer({}, { itemTextSize: Number(event.target.value) })} /></label></div>}
                       </>
                     )}
                     {selectedLayer.type === 'raster' && (
