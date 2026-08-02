@@ -45,6 +45,7 @@ export interface ProductionPosterOverlayOperations {
   populateLocalPosters(): Promise<LocalPosterWorkspaceResult>;
   searchItems(query: string, libraryId?: string): Promise<readonly PosterTestSearchItem[]>;
   posterForItem(ratingKey: string): Promise<Uint8Array | undefined>;
+  previewItem(ratingKey: string): Promise<Uint8Array | undefined>;
   testItem(ratingKey: string): Promise<PosterOverlayTestResult | undefined>;
   applyItem(ratingKey: string): Promise<PosterOverlayWorkspace | undefined>;
   resetItem(ratingKey: string): Promise<PosterOverlayWorkspace | undefined>;
@@ -158,6 +159,7 @@ export class ProductionPosterOverlayStore {
   public populateLocalPosters() { if (!this.#operations) throw new Error('Overlay operations are unavailable.'); return this.#operations.populateLocalPosters(); }
   public searchItems(query: string, libraryId?: string) { return this.#operations?.searchItems(query, libraryId) ?? Promise.resolve([]); }
   public posterForItem(ratingKey: string) { return this.#operations?.posterForItem(ratingKey) ?? Promise.resolve(undefined); }
+  public previewItem(ratingKey: string) { return this.#operations?.previewItem(ratingKey) ?? Promise.resolve(undefined); }
   public testItem(ratingKey: string) { return this.#operations?.testItem(ratingKey) ?? Promise.resolve(undefined); }
   public applyItem(ratingKey: string) { return this.#operations?.applyItem(ratingKey) ?? Promise.resolve(undefined); }
   public resetItem(ratingKey: string) { return this.#operations?.resetItem(ratingKey) ?? Promise.resolve(undefined); }

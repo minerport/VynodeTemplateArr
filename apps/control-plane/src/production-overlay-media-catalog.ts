@@ -27,7 +27,9 @@ export class ProductionOverlayMediaCatalog {
     private readonly now: () => Date = () => new Date(),
     private readonly maxAgeMs = 5 * 60_000
   ) {
-    this.#values = new SqliteJsonRepository(storage, 'overlay-media-catalog');
+    // v2 deliberately drops catalogs that could contain Plex collection rows
+    // incorrectly classified as movie items by older releases.
+    this.#values = new SqliteJsonRepository(storage, 'overlay-media-catalog-v2');
     if (!this.#values.get('state'))
       this.#values.put('state', { libraries: {}, enrichments: {} });
   }

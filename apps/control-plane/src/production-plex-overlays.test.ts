@@ -19,12 +19,12 @@ test('production overlay executor discovers Plex items and exposes originating s
     requests.push(`${request.method} ${request.url}`);
     if (request.url?.startsWith('/library/sections/1/all')) {
       response.setHeader('content-type', 'application/json');
-      response.end(JSON.stringify({ MediaContainer: { Metadata: [{ ratingKey: '101' }] } }));
+      response.end(JSON.stringify({ MediaContainer: { Metadata: [{ ratingKey: '101', type: 'movie' }, { ratingKey: '999', type: 'collection', title: 'Not a movie', Guid: [], Media: [] }] } }));
       return;
     }
     if (request.url?.startsWith('/library/metadata/101')) {
       response.setHeader('content-type', 'application/json');
-      response.end(JSON.stringify({ MediaContainer: { Metadata: [{ ratingKey: '101', librarySectionID: '1', title: 'Example', year: 2026, studio: 'Netflix', thumb: '/library/metadata/101/thumb/1', Guid: [{ id: 'tmdb://10' }, { id: 'tvdb://20' }, { id: 'imdb://tt1234567' }], Rating: [{ image: 'imdb://image.rating', value: 7.9 }], Media: [{ width: 1920, height: 1080, videoResolution: '1080', Part: [{ Stream: [{ streamType: 1, colorTrc: 'smpte2084' }] }] }] }] } }));
+      response.end(JSON.stringify({ MediaContainer: { Metadata: [{ ratingKey: '101', type: 'movie', librarySectionID: '1', title: 'Example', year: 2026, studio: 'Netflix', thumb: '/library/metadata/101/thumb/1', Guid: [{ id: 'tmdb://10' }, { id: 'tvdb://20' }, { id: 'imdb://tt1234567' }], Rating: [{ image: 'imdb://image.rating', value: 7.9 }], Media: [{ width: 1920, height: 1080, videoResolution: '1080', Part: [{ Stream: [{ streamType: 1, colorTrc: 'smpte2084' }] }] }] }] } }));
       return;
     }
     if (request.url?.startsWith('/photo/:/transcode')) {
@@ -53,6 +53,7 @@ test('production overlay executor discovers Plex items and exposes originating s
     const saved=await overlays.saveTemplate(undefined,{name:'IMDb 5+',description:'',type:'rating',tags:[],enabled:true,conditionSummary:'IMDb rating at least 5',accent:'#fff',condition:{sections:[{rules:[{field:'imdbRating',operator:'gte',value:5}]}]},design:{width:1000,height:1500,elements:[{id:'rating',layerOrder:0,type:'text',x:10,y:10,width:100,height:40,rotation:0,name:'Rating',properties:{text:'IMDb'}},{id:'maintenance',layerOrder:1,type:'variable',x:10,y:60,width:100,height:40,rotation:0,name:'Maintenance',properties:{segments:[{type:'variable',field:'daysUntilAction'}]}},{id:'arr',layerOrder:2,type:'variable',x:10,y:110,width:100,height:40,rotation:0,name:'Arr',properties:{segments:[{type:'variable',field:'radarrTags'}]}}]}});
     await overlays.updateLibrary('1',{enabledTemplateIds:[saved.templates[0]!.id]});
     const found = await overlays.searchItems('exam', '1');
+    assert.equal(found.length, 1);
     assert.equal(found[0]?.ratingKey, '101');
     const preview = await overlays.testItem('101');
     assert.equal(preview?.context.streamingProvider, 'Netflix');

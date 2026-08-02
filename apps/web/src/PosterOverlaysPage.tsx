@@ -388,7 +388,7 @@ export const PosterOverlaysPage = () => {
           <div className="test-output">
             <section>
               <h3>Rendered poster</h3>
-              <div className="rendered-test-poster"><span>Vynode preview</span><b>{String(testResult.context.resolution ?? 'Unknown')}</b>{testResult.context.rtAudienceScore !== undefined && <b>{String(testResult.context.rtAudienceScore)}%</b>}<strong>{testResult.item.title}</strong><small>{testResult.item.year} · {testResult.item.libraryName}</small></div>
+              <div className="rendered-test-poster"><img src={`/api/posters/overlays/items/${encodeURIComponent(testResult.item.ratingKey)}/preview`} alt={`Rendered overlay preview for ${testResult.item.title}`} /></div>
               {!testApplied ? (
                 <button className="button primary" disabled={testBusy} onClick={() => {
                   setTestBusy(true);
@@ -396,7 +396,7 @@ export const PosterOverlaysPage = () => {
                     .then((result) => {
                       setWorkspace(result);
                       setTestApplied(true);
-                      setMessage(`Overlay applied to ${testResult.item.title} on Laptop.`);
+                      setMessage(`Overlay applied to ${testResult.item.title} in Plex.`);
                     })
                     .catch((error) => setMessage(error instanceof Error ? error.message : 'Unable to apply this poster.'))
                     .finally(() => setTestBusy(false));

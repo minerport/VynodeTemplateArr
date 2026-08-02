@@ -137,6 +137,45 @@ export class OverlayApplicationService {
     return bytes;
   }
 
+  public async preview(
+    item: OverlayApplicationItem,
+    templates: readonly OverlayTemplateSummary[],
+    source: PosterSource,
+    language: string,
+    signal?: AbortSignal
+  ): Promise<Uint8Array> {
+    const previous = await this.options.states.get(item.ratingKey);
+    const acquired = await this.options.acquisition.acquire(
+      source,
+      item,
+      language,
+      signal
+    );
+    let base = acquired.bytes;
+    if (previous) {
+      const preserved = await this.options.bases.get(previous.basePosterKey);
+      if (!preserved || digest(preserved) !== previous.basePosterHash)
+        throw new Error('The preserved base poster is missing or corrupt.');
+      base = preserved;
+    }
+    const context = await this.options.contexts.build(item, templates, {
+      isPlaceholder: (item.labels ?? []).some((label) =>
+        ['trailer-placeholder', 'vynode-placeholder'].includes(
+          label.toLowerCase()
+        )
+      ),
+      ...(signal ? { signal } : {}),
+    });
+    if (context.criticalProviderFailed)
+      throw new Error(
+        context.warnings
+          .map((warning) => `${warning.provider}: ${warning.message}`)
+          .join(' | ')
+      );
+    return (await this.options.renderer.render(base, templates, context.context, signal))
+      .bytes;
+  }
+
   public apply(
     items: readonly OverlayApplicationItem[],
     templates: readonly OverlayTemplateSummary[],

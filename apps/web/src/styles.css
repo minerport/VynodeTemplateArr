@@ -1118,6 +1118,11 @@
     ),
     linear-gradient(150deg, #334148, #111b20 58%, #05090b);
 }
+.rendered-test-poster > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 .rendered-test-poster > span {
   position: absolute;
   top: 16px;

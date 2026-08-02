@@ -619,6 +619,7 @@ export interface ControlPlaneDependencies {
       libraryId?: string
     ): Promise<readonly PosterTestSearchItem[]>;
     posterForItem?(ratingKey: string): Promise<Uint8Array | undefined>;
+    previewItem?(ratingKey: string): Promise<Uint8Array | undefined>;
     testItem?(ratingKey: string): Promise<PosterOverlayTestResult | undefined>;
     applyItem?(ratingKey: string): Promise<PosterOverlayWorkspace | undefined>;
     resetItem?(ratingKey: string): Promise<PosterOverlayWorkspace | undefined>;
@@ -1930,6 +1931,20 @@ export const createControlPlane = async (
       );
       if (!bytes)
         return reply.code(404).send({ message: 'Poster was not found.' });
+      return reply.type('image/jpeg').send(Buffer.from(bytes));
+    }
+  );
+
+  app.get<{ Params: { ratingKey: string } }>(
+    '/api/posters/overlays/items/:ratingKey/preview',
+    async (request, reply) => {
+      if (!dependencies.posterOverlays?.previewItem)
+        return reply.code(503).send({ message: 'Rendered overlay preview is unavailable.' });
+      const bytes = await dependencies.posterOverlays.previewItem(
+        request.params.ratingKey
+      );
+      if (!bytes)
+        return reply.code(404).send({ message: 'The selected Plex item was not found.' });
       return reply.type('image/jpeg').send(Buffer.from(bytes));
     }
   );

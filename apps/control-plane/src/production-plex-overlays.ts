@@ -32,6 +32,13 @@ const itemFromMetadata = (metadata: RecordValue, library: { key: string; title: 
   const ratingKey = text(metadata.ratingKey);
   const title = text(metadata.title);
   if (!ratingKey || !title) return undefined;
+  const plexType = text(metadata.type).toLowerCase();
+  if (
+    plexType &&
+    (library.type === 'movie'
+      ? plexType !== 'movie'
+      : !['show', 'season', 'episode'].includes(plexType))
+  ) return undefined;
   const guids = records(metadata.Guid).map((value) => text(value.id));
   const tmdbId = guids.map((guid) => /^tmdb:\/\/(\d+)$/i.exec(guid)?.[1]).find(Boolean);
   const tvdbId = guids.map((guid) => /^tvdb:\/\/(\d+)$/i.exec(guid)?.[1]).find(Boolean);
@@ -102,10 +109,14 @@ const itemFromMetadata = (metadata: RecordValue, library: { key: string; title: 
   const addedAt = epoch(metadata.addedAt);
   const lastViewedAt = epoch(metadata.lastViewedAt);
   const viewCount = number(metadata.viewCount);
-  const totalSeasons = number(metadata.childCount);
-  const seasonsAvailable = number(metadata.childCount);
-  const seasonNumber = number(metadata.parentIndex);
-  const episodeNumber = number(metadata.index);
+  const totalSeasons = !plexType || plexType === 'show' ? number(metadata.childCount) : undefined;
+  const seasonsAvailable = totalSeasons;
+  const seasonNumber = plexType === 'season'
+    ? number(metadata.index)
+    : plexType === 'episode'
+      ? number(metadata.parentIndex)
+      : undefined;
+  const episodeNumber = plexType === 'episode' ? number(metadata.index) : undefined;
   const episodeLabel =
     seasonNumber !== undefined && episodeNumber !== undefined
       ? `S${String(seasonNumber).padStart(2, '0')}E${String(episodeNumber).padStart(2, '0')}`
@@ -281,7 +292,7 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     const { configured, transport } = await this.plex();
     const library = configured.libraries.find((value) => value.key === libraryId && value.available && (value.type === 'movie' || value.type === 'show'));
     if (!library) throw new Error('The selected Plex library is unavailable.');
-    const summaries = containerMetadata(await transport.query(`/library/sections/${encodeURIComponent(libraryId)}/all?includeGuids=1&includeCollections=1&includeLabels=1&includeFields=1&includeMedia=1&includeRatings=1`, signal));
+    const summaries = containerMetadata(await transport.query(`/library/sections/${encodeURIComponent(libraryId)}/all?type=${library.type === 'movie' ? '1' : '2'}&includeGuids=1&includeCollections=1&includeLabels=1&includeFields=1&includeMedia=1&includeRatings=1`, signal));
     const items: OverlayApplicationItem[] = [];
     for (const summary of summaries) {
       signal?.throwIfAborted();
@@ -433,9 +444,83 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
   async resetLibrary(id: string) { const library = (await this.store.get()).libraries.find((value) => value.id === id); if (!library || this.#controllers.has(id)) return undefined; const controller = new AbortController(); this.#controllers.set(id, controller); await this.store.updateLibraryRun(id, { status: 'processing', operation: 'reset' }); void this.#runLibrary(library, controller.signal, true).then((result) => this.#finish(id, result, true)).catch(() => this.store.updateLibraryRun(id, { status: controller.signal.aborted ? 'idle' : 'error', operation: undefined, failedItems: controller.signal.aborted ? 0 : 1 })).finally(() => this.#controllers.delete(id)); return this.store.get(); }
   async searchItems(query: string, libraryId?: string): Promise<readonly PosterTestSearchItem[]> { const workspace = await this.store.get(); const normalized = query.trim().toLowerCase(); const results: PosterTestSearchItem[] = []; for (const library of workspace.libraries.filter((value) => !libraryId || value.id === libraryId)) for (const item of await this.#items(library.id)) { if (normalized && !item.title.toLowerCase().includes(normalized)) continue; results.push({ ratingKey: item.ratingKey, title: item.title, ...(item.year ? { year: item.year } : {}), type: item.mediaType, libraryId: item.libraryId, libraryName: item.libraryName, posterUrl: `/api/posters/overlays/items/${encodeURIComponent(item.ratingKey)}/poster` }); if (results.length >= 50) return results; } return results; }
   async posterForItem(ratingKey: string) { return (await this.#application.preservedBasePoster(ratingKey)) ?? this.posterFromPlex(ratingKey); }
-  async testItem(ratingKey: string): Promise<PosterOverlayTestResult | undefined> { const item = await this.#item(ratingKey); if (!item) return undefined; const workspace = await this.store.get(); const built = await this.#contexts.build(item, workspace.templates); return { item: { ratingKey: item.ratingKey, title: item.title, ...(item.year ? { year: item.year } : {}), type: item.mediaType, libraryId: item.libraryId, libraryName: item.libraryName }, templates: workspace.templates.map((template: OverlayTemplateSummary) => ({ id: template.id, name: template.name, matched: template.enabled && evaluateOverlayConditionDetailed(template.condition, built.context).matched, conditionSummary: template.conditionSummary })), context: Object.fromEntries(Object.entries(built.context).filter(([, value]) => value !== undefined).map(([key, value]) => [key, value instanceof Date ? value.toISOString() : Array.isArray(value) ? value.join(', ') : value as string | number | boolean])), errors: built.warnings.map((warning) => `${warning.provider}: ${warning.message}`) }; }
-  async applyItem(ratingKey: string) { const item = await this.#item(ratingKey); if (!item) return undefined; const workspace = await this.store.get(); const library = workspace.libraries.find((value) => value.id === item.libraryId); if (!library) return undefined; const result = await this.#application.apply([item], workspace.templates.filter((template) => library.enabledTemplateIds.includes(template.id)), workspace.source.source, library.tmdbLanguage); return this.#finish(library.id, result); }
-  async resetItem(ratingKey: string) { const item = await this.#item(ratingKey); if (!item) return undefined; const result = await this.#application.reset([{ ratingKey }]); return this.#finish(item.libraryId, result, true); }
+  async previewItem(ratingKey: string) {
+    const item = await this.#item(ratingKey);
+    if (!item) return undefined;
+    const workspace = await this.store.get();
+    const library = workspace.libraries.find((value) => value.id === item.libraryId);
+    if (!library) return undefined;
+    const templates = workspace.templates.filter((template) =>
+      library.enabledTemplateIds.includes(template.id)
+    );
+    if (!templates.length)
+      throw new Error('No overlay templates are selected for this Plex library.');
+    return this.#application.preview(
+      item,
+      templates,
+      workspace.source.source,
+      library.tmdbLanguage
+    );
+  }
+  async testItem(ratingKey: string): Promise<PosterOverlayTestResult | undefined> {
+    const item = await this.#item(ratingKey);
+    if (!item) return undefined;
+    const workspace = await this.store.get();
+    const library = workspace.libraries.find((value) => value.id === item.libraryId);
+    if (!library) return undefined;
+    const templates = workspace.templates.filter((template) =>
+      library.enabledTemplateIds.includes(template.id)
+    );
+    const built = await this.#contexts.build(item, templates);
+    return {
+      item: { ratingKey: item.ratingKey, title: item.title, ...(item.year ? { year: item.year } : {}), type: item.mediaType, libraryId: item.libraryId, libraryName: item.libraryName },
+      templates: templates.map((template: OverlayTemplateSummary) => {
+        const evaluation = evaluateOverlayConditionDetailed(template.condition, built.context);
+        const failed = evaluation.sectionResults.flatMap((section) =>
+          section.ruleResults.filter((rule) => !rule.matched).map((rule) =>
+            `${rule.field}: expected ${rule.operator} ${JSON.stringify(rule.expectedValue)}, actual ${rule.actualValue === undefined ? 'missing' : JSON.stringify(rule.actualValue)}`
+          )
+        );
+        return { id: template.id, name: template.name, matched: template.enabled && evaluation.matched, conditionSummary: template.conditionSummary, ...(failed.length ? { actualValue: failed.join(' | ') } : {}) };
+      }),
+      context: Object.fromEntries(Object.entries(built.context).filter(([, value]) => value !== undefined).map(([key, value]) => [key, value instanceof Date ? value.toISOString() : Array.isArray(value) ? value.join(', ') : value as string | number | boolean])),
+      errors: [
+        ...(!templates.length ? ['No overlay templates are selected for this Plex library.'] : []),
+        ...built.warnings.map((warning) => `${warning.provider}: ${warning.message}`),
+      ],
+    };
+  }
+  async applyItem(ratingKey: string) {
+    const item = await this.#item(ratingKey);
+    if (!item) return undefined;
+    const workspace = await this.store.get();
+    const library = workspace.libraries.find((value) => value.id === item.libraryId);
+    if (!library) return undefined;
+    const templates = workspace.templates.filter((template) =>
+      library.enabledTemplateIds.includes(template.id)
+    );
+    if (!templates.length)
+      throw new Error('No overlay templates are selected for this Plex library.');
+    const result = await this.#application.apply(
+      [item],
+      templates,
+      workspace.source.source,
+      library.tmdbLanguage
+    );
+    const outcome = result.items[0];
+    if (!outcome || outcome.status === 'failed' || outcome.status === 'skipped')
+      throw new Error(outcome?.reason ?? 'The overlay was not applied.');
+    return this.store.get();
+  }
+  async resetItem(ratingKey: string) {
+    const item = await this.#item(ratingKey);
+    if (!item) return undefined;
+    const result = await this.#application.reset([{ ratingKey }]);
+    const outcome = result.items[0];
+    if (!outcome || outcome.status !== 'restored')
+      throw new Error(outcome?.reason ?? 'The original poster was not restored.');
+    return this.store.get();
+  }
   async generateLocalFolders() { const workspace = await this.store.get(); const items = (await Promise.all(workspace.libraries.map((library) => this.#items(library.id)))).flat(); return generateLocalPosterFolders(workspace.source.localRoot, items); }
   async populateLocalPosters() { const workspace = await this.store.get(); const items = (await Promise.all(workspace.libraries.map((library) => this.#items(library.id)))).flat(); return populateLocalPosters(workspace.source.localRoot, items, async (item, signal) => { const bytes = await this.posterFromPlex(item.ratingKey, signal); if (!bytes) throw new Error(`Plex does not have a poster for "${item.title}".`); return bytes; }); }
 }

@@ -28,9 +28,12 @@ import {
   TraktOAuthService,
 } from '@vynode/integrations';
 import {
+  CollectionPosterSynchronizationAssets,
   FilePlexDiscoveryRepository,
   ManagedCollectionSynchronizer,
+  PlexCollectionPosterInputProvider,
   PlexCloudServerDirectory,
+  PlexDiscoveredItemSynchronizer,
   PlexDiscoveryCoordinator,
   PlexDiscoveryScanner,
   PlexHttpTransport,
@@ -42,6 +45,7 @@ import {
   ProductionPlexServerProbe,
   selectGeneratorValues,
 } from '@vynode/media-servers';
+import { NativeCollectionPosterRenderer } from '@vynode/poster-overlays';
 import { OnboardingService } from '@vynode/onboarding';
 import {
   EncryptedSecretVault,
@@ -461,6 +465,10 @@ export const createProductionRuntime = async (
       configuration.publicUrl,
       configuration.dataDirectory
     );
+    const collectionPosters = new ProductionCollectionPosterStore(
+      storage,
+      configuration.dataDirectory
+    );
     const missingHistory = new FileMissingRequestRepository(
       resolve(configuration.dataDirectory, 'requests', 'missing.json')
     );
@@ -668,12 +676,98 @@ export const createProductionRuntime = async (
             allowedMutationServerNames: new Set([configured.name]),
           })
         ).synchronize(collection, desired, signal, onPlexIdentity);
+        const posterAssets = new CollectionPosterSynchronizationAssets({
+          workspace: () => collectionPosters.get(),
+          renderInputs: new PlexCollectionPosterInputProvider({
+            transport,
+            sourceType: async () => collection.sourceType,
+            uploadedPoster: async (id) =>
+              (await collectionPosters.readAsset(id))?.bytes,
+          }),
+          renderer: new NativeCollectionPosterRenderer({
+            assets: {
+              resolve: async (assetId) => {
+                const asset = await collectionPosters.readAsset(assetId);
+                if (!asset)
+                  throw new Error(
+                    `Collection poster asset "${assetId}" is unavailable.`
+                  );
+                return asset.bytes;
+              },
+            },
+          }),
+          resolveCollectionAsset: async (reference) => {
+            const asset = await collectionPosters.readAsset(reference.id);
+            if (!asset)
+              throw new Error(
+                `Collection asset "${reference.name}" is unavailable.`
+              );
+            return asset.bytes;
+          },
+        });
+        const assetReport = await new PlexDiscoveredItemSynchronizer(
+          new PlexManagementClient(transport),
+          posterAssets
+        ).synchronizeItem(
+          {
+            id: collection.id,
+            kind: 'pre-existing-collection',
+            plexKey: report.plexRatingKey,
+            name: collection.title,
+            libraryId: collection.libraryId,
+            libraryName: collection.libraryName,
+            mediaType: collection.mediaType,
+            homeOrder: 0,
+            libraryOrder: 0,
+            visibility: {
+              usersHome: collection.homeVisible,
+              serverOwnerHome: collection.homeVisible,
+              libraryRecommended: collection.recommendedVisible,
+            },
+            missing: false,
+            isLinked: false,
+            isUnlinked: false,
+            lastValidatedAt: new Date().toISOString(),
+            timeRestriction: collection.behaviorSettings?.timeRestriction ?? {
+              alwaysActive: true,
+              removeFromPlexWhenInactive: false,
+              inactiveVisibility: {
+                usersHome: false,
+                serverOwnerHome: false,
+                libraryRecommended: false,
+              },
+              dateRanges: [],
+              weeklySchedule: {
+                monday: true,
+                tuesday: true,
+                wednesday: true,
+                thursday: true,
+                friday: true,
+                saturday: true,
+                sunday: true,
+              },
+            },
+            ...(collection.posterSettings
+              ? { posterSettings: collection.posterSettings }
+              : {}),
+            ...(collection.metadataSettings
+              ? { metadataSettings: collection.metadataSettings }
+              : {}),
+          },
+          true,
+          signal
+        );
         await overlayMediaCatalog.invalidate(collection.libraryId);
         return {
           plexRatingKey: report.plexRatingKey,
           itemCount: report.verifiedMemberKeys.length,
           created: report.created,
-          failures: report.failures,
+          failures: [
+            ...report.failures,
+            ...assetReport.failures.map(
+              (failure) => `${failure.operation}: ${failure.message}`
+            ),
+          ],
         };
       }
     );
@@ -969,10 +1063,6 @@ export const createProductionRuntime = async (
       configuration.dataDirectory,
       async () =>
         (await integrationRepository.get('maintainerr'))?.configured === true
-    );
-    const collectionPosters = new ProductionCollectionPosterStore(
-      storage,
-      configuration.dataDirectory
     );
     type ArrOverlayValues = Readonly<Record<string, string | number | boolean | readonly string[] | undefined>>;
     const arrOverlaySnapshots = new Map<string, { expiresAt: number; value: Promise<Map<number, ArrOverlayValues>> }>();
