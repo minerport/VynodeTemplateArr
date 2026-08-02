@@ -9,7 +9,7 @@ appdata mapping or without retaining the master key.
 The Unraid template pulls the published release-candidate image:
 
 ```sh
-docker pull ghcr.io/minerport/vynodetemplatearr:0.1.0-rc.10
+docker pull ghcr.io/minerport/vynodetemplatearr:0.1.0-rc.11
 ```
 
 To build the same image locally on a Docker-capable host:

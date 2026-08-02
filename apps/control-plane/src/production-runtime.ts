@@ -1075,8 +1075,15 @@ export const createProductionRuntime = async (
           const apiKey = await secrets.get(server.secretReference);
           if (!apiKey) continue;
           const client = new ArrTagSourceClient({ ...server.endpoint, apiKey });
-          const [tags, items] = await Promise.all([client.tags(signal), client.items(signal)]);
+          const [tags, items, upcoming] = await Promise.all([
+            client.tags(signal),
+            client.items(signal),
+            client.monitoredUpcoming(signal),
+          ]);
           const names = new Map(tags.map((tag) => [tag.id, tag.label]));
+          const upcomingById = new Map(
+            upcoming.map((candidate) => [candidate.serviceId, candidate])
+          );
           for (const candidate of items) {
             const externalId = kind === 'radarr' ? candidate.tmdbId : candidate.tvdbId;
             if (!externalId) continue;
@@ -1091,6 +1098,18 @@ export const createProductionRuntime = async (
               [kind === 'radarr' ? 'inRadarr' : 'inSonarr']: true,
               isMonitored: previous?.isMonitored === true || candidate.monitored === true,
               [tagField]: [...labels].sort((left, right) => left.localeCompare(right)),
+              ...(upcomingById.get(candidate.serviceId)?.releaseAt
+                ? {
+                    nextAirDate: upcomingById.get(candidate.serviceId)!.releaseAt,
+                    daysUntilNextEpisode: Math.max(
+                      0,
+                      Math.ceil(
+                        (Date.parse(upcomingById.get(candidate.serviceId)!.releaseAt!) - Date.now()) /
+                          86_400_000
+                      )
+                    ),
+                  }
+                : {}),
             });
           }
         }

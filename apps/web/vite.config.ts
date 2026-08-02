@@ -5,9 +5,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://localhost:7171',
-      '/health': 'http://localhost:7171',
-      '/plex-webhook': 'http://localhost:7171',
+      '/api': process.env.VYNODE_DEV_API_URL ?? 'http://localhost:7273',
+      '/health': process.env.VYNODE_DEV_API_URL ?? 'http://localhost:7273',
+      '/plex-webhook': process.env.VYNODE_DEV_API_URL ?? 'http://localhost:7273',
     },
   },
 });

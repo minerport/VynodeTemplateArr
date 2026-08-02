@@ -8,8 +8,31 @@ import test from 'node:test';
 import { PlexHttpTransport, type PlexServerConfiguration } from '@vynode/media-servers';
 import { VynodeSqliteStorage } from '@vynode/storage';
 import { ProductionCollectionPosterStore } from './production-collection-posters.js';
-import { ProductionPlexOverlayExecutor } from './production-plex-overlays.js';
+import { futureTvSchedule, ProductionPlexOverlayExecutor } from './production-plex-overlays.js';
 import { ProductionPosterOverlayStore } from './production-poster-overlays.js';
+
+test('derives future TV season and episode countdown variables from TMDB', () => {
+  const now = Date.parse('2026-08-02T00:00:00.000Z');
+  assert.deepEqual(
+    futureTvSchedule(
+      {
+        next_episode_to_air: { air_date: '2026-08-12' },
+        seasons: [
+          { season_number: 0, air_date: '2027-01-01' },
+          { season_number: 1, air_date: '2026-12-01' },
+          { season_number: 2, air_date: '2027-12-01' },
+        ],
+      },
+      now
+    ),
+    {
+      nextAirDate: '2026-08-12T00:00:00.000Z',
+      daysUntilNextEpisode: 10,
+      daysUntilNextSeason: 121,
+      seasonNumber: 1,
+    }
+  );
+});
 
 test('production overlay executor discovers Plex items and exposes originating service context', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'vynode-plex-overlays-'));

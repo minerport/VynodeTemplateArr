@@ -28,6 +28,42 @@ const text = (value: unknown) => value === undefined || value === null ? '' : St
 const containerMetadata = (value: unknown) => records(record(record(value)?.MediaContainer)?.Metadata);
 const epoch = (value: unknown) => { const seconds = Number(value); return Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000).toISOString() : undefined; };
 
+export const futureTvSchedule = (
+  metadata: RecordValue,
+  now = Date.now()
+): Readonly<Record<string, string | number | undefined>> => {
+  const nextEpisode = record(metadata.next_episode_to_air);
+  const nextEpisodeAt = Date.parse(text(nextEpisode?.air_date));
+  const nextSeason = records(metadata.seasons)
+    .map((season) => ({
+      number: Number(season.season_number),
+      timestamp: Date.parse(text(season.air_date)),
+    }))
+    .filter((season) =>
+      Number.isInteger(season.number) &&
+      season.number > 0 &&
+      Number.isFinite(season.timestamp) &&
+      season.timestamp > now
+    )
+    .sort((left, right) => left.timestamp - right.timestamp)[0];
+  const daysFromNow = (timestamp: number) =>
+    Math.max(0, Math.ceil((timestamp - now) / 86_400_000));
+  return {
+    nextAirDate: Number.isFinite(nextEpisodeAt)
+      ? new Date(nextEpisodeAt).toISOString()
+      : nextSeason
+        ? new Date(nextSeason.timestamp).toISOString()
+        : undefined,
+    daysUntilNextEpisode: Number.isFinite(nextEpisodeAt)
+      ? daysFromNow(nextEpisodeAt)
+      : undefined,
+    daysUntilNextSeason: nextSeason
+      ? daysFromNow(nextSeason.timestamp)
+      : undefined,
+    seasonNumber: nextSeason?.number,
+  };
+};
+
 const itemFromMetadata = (metadata: RecordValue, library: { key: string; title: string; type: 'movie' | 'show' }): OverlayApplicationItem | undefined => {
   const ratingKey = text(metadata.ratingKey);
   const title = text(metadata.title);
@@ -212,7 +248,7 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     };
     const tmdbProvider: OverlayContextProvider = {
       name: 'TMDB',
-      fields: new Set(['genre','director','studio','network','releaseDate','runtime','streamingProvider','streamingProviderId']),
+      fields: new Set(['genre','director','studio','network','releaseDate','runtime','streamingProvider','streamingProviderId','nextAirDate','daysUntilNextEpisode','daysUntilNextSeason','seasonNumber']),
       async load(item, fields, signal) {
         if (!item.tmdbId || ![...fields].some((field) => this.fields.has(field))) return {};
         return durableContext(item, 'tmdb-origin-v2', 24 * 60 * 60_000, async () => {
@@ -239,6 +275,7 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
           streamingProviderId: origin?.id,
           releaseDate: text(metadata.release_date ?? metadata.first_air_date),
           runtime: Number(metadata.runtime ?? records(metadata.episode_run_time)[0]) || undefined,
+          ...futureTvSchedule(metadata),
           };
         });
       },
@@ -401,6 +438,8 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
   }
   async startLibraryJob(id: string) {
     const library = (await this.store.get()).libraries.find((value) => value.id === id); if (!library || this.#controllers.has(id)) return undefined;
+    if (!library.enabledTemplateIds.length)
+      throw new Error(`Choose at least one overlay for "${library.name}" before applying.`);
     const controller = new AbortController(); this.#controllers.set(id, controller); await this.store.updateLibraryRun(id, { status: 'processing', operation: 'apply', processedItems: 0, failedItems: 0 });
     void this.#runLibrary(library, controller.signal).then((result) => this.#finish(id, result)).catch((error) => { const message = error instanceof Error ? error.message : String(error); if (!controller.signal.aborted) this.reportFailure(id, message); return this.store.updateLibraryRun(id, { status: controller.signal.aborted ? 'idle' : 'error', operation: undefined, failedItems: controller.signal.aborted ? 0 : 1, lastError: controller.signal.aborted ? undefined : message }); }).finally(() => this.#controllers.delete(id));
     return this.store.get();
