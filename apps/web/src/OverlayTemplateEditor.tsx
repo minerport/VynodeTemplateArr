@@ -3128,6 +3128,10 @@ const MappedIconProperties = ({
             Automatically match the identified service to its genuine bundled logo.
             You can then change or remove any individual mapping.
           </p>
+          <p className="field-help">
+            If Plex and TMDB cannot identify an origin, add a Plex label such as
+            <code>Vynode Service: Netflix</code>. Custom service names are also supported.
+          </p>
           <button
             type="button"
             onClick={() => {

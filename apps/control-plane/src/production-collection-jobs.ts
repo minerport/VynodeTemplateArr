@@ -20,7 +20,7 @@ export class ProductionCollectionJobRunner {
   public async execute(collectionId:string,signal?:AbortSignal):Promise<ProductionCollectionSyncResult>{
     const job=await this.repository.enqueue({kind:'collection.sync',input:{collectionId},idempotencyKey:`collection.sync:${collectionId}`,maxAttempts:3},this.now());this.#startPump();
     const cancel=()=>{void this.repository.requestCancellation(job.id,this.now());this.#controllers.get(job.id)?.abort();};signal?.addEventListener('abort',cancel,{once:true});
-    try{for(;;){if(signal?.aborted)throw new DOMException('Aborted','AbortError');const current=await this.repository.get(job.id);if(!current)throw new Error('The durable collection job disappeared.');if(current.status==='succeeded')return current.result as ProductionCollectionSyncResult;if(current.status==='failed'||current.status==='cancelled')throw new Error(current.error??`Collection synchronization ${current.status}.`);await new Promise((resolve)=>setTimeout(resolve,25));}}
+    try{for(;;){if(signal?.aborted)throw new DOMException('Aborted','AbortError');const current=await this.repository.get(job.id);if(!current)throw new Error('The durable collection job disappeared.');if(current.status==='succeeded'){await this.#pumping;return current.result as ProductionCollectionSyncResult;}if(current.status==='failed'||current.status==='cancelled'){await this.#pumping;throw new Error(current.error??`Collection synchronization ${current.status}.`);}await new Promise((resolve)=>setTimeout(resolve,25));}}
     finally{signal?.removeEventListener('abort',cancel);}
   }
   #startPump():Promise<void>{if(this.#pumping)return this.#pumping;this.#pumping=this.#pump().finally(()=>{this.#pumping=undefined;});return this.#pumping;}

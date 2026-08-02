@@ -201,10 +201,10 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
     };
     const tmdbProvider: OverlayContextProvider = {
       name: 'TMDB',
-      fields: new Set(['genre','director','studio','network','releaseDate','runtime']),
+      fields: new Set(['genre','director','studio','network','releaseDate','runtime','streamingProvider','streamingProviderId']),
       async load(item, fields, signal) {
         if (!item.tmdbId || ![...fields].some((field) => this.fields.has(field))) return {};
-        return durableContext(item, 'tmdb', 24 * 60 * 60_000, async () => {
+        return durableContext(item, 'tmdb-origin-v2', 24 * 60 * 60_000, async () => {
           const apiKey = await tmdbApiKey();
           if (!apiKey) return {};
           const metadata = await tmdbMetadataCache.get(`${item.mediaType}:${item.tmdbId}`, async () => {
@@ -216,11 +216,16 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
           return response.json() as Promise<RecordValue>;
           });
           const crew = records(record(metadata.credits)?.crew);
+          const networks = records(metadata.networks).map((entry) => text(entry.name)).filter(Boolean);
+          const companies = records(metadata.production_companies).map((entry) => text(entry.name)).filter(Boolean);
+          const origin = identifyStreamingProvider({ networks, studio: companies.join(' | ') });
           return {
           genre: text(records(metadata.genres)[0]?.name),
           director: text(crew.find((entry) => text(entry.job).toLowerCase() === 'director')?.name),
-          studio: text(records(metadata.production_companies)[0]?.name),
-          network: text(records(metadata.networks)[0]?.name),
+          studio: companies[0],
+          network: networks[0],
+          streamingProvider: origin?.name,
+          streamingProviderId: origin?.id,
           releaseDate: text(metadata.release_date ?? metadata.first_air_date),
           runtime: Number(metadata.runtime ?? records(metadata.episode_run_time)[0]) || undefined,
           };

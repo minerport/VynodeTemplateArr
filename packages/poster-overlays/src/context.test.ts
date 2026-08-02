@@ -17,6 +17,8 @@ test('identifies the originating streaming service from durable Plex metadata',(
   assert.deepEqual(identifyStreamingProvider({labels:['Apple TV+ Original']}),{name:'Apple TV+',id:350});
   assert.deepEqual(identifyStreamingProvider({streamingProvider:'Custom Service',streamingProviderId:44}),{name:'Custom Service',id:44});
   assert.deepEqual(identifyStreamingProvider({collections:['Prime Video Originals']}),{name:'Prime Video',id:9});
+  assert.deepEqual(identifyStreamingProvider({labels:['Vynode Service: Disney+']}),{name:'Disney+',id:337});
+  assert.deepEqual(identifyStreamingProvider({labels:['Originating Service = Shudder']}),{name:'Shudder'});
 });
 
 const templates = [

@@ -39,6 +39,20 @@ export interface EnqueueJobInput<TInput> {
 const wait = (milliseconds: number) =>
   new Promise<void>((complete) => setTimeout(complete, milliseconds));
 
+const replaceFile = async (temporary: string, destination: string) => {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      await rename(temporary, destination);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (!['EPERM', 'EACCES', 'EBUSY'].includes(code ?? '') || attempt === 7)
+        throw error;
+      await wait(Math.min(160, 10 * 2 ** attempt));
+    }
+  }
+};
+
 const validStore = (value: unknown): value is DurableJob[] =>
   Array.isArray(value) &&
   value.every(
@@ -315,7 +329,12 @@ export class FileDurableJobRepository {
         encoding: 'utf8',
         mode: 0o600,
       });
-      await rename(temporary, this.path);
+      try {
+        await replaceFile(temporary, this.path);
+      } catch (error) {
+        await rm(temporary, { force: true }).catch(() => undefined);
+        throw error;
+      }
       return result.value;
     } finally {
       await release();

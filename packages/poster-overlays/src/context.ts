@@ -132,6 +132,11 @@ const originServices = [
 
 export const identifyStreamingProvider=(item:Pick<PlexOverlayMedia,'streamingProvider'|'streamingProviderId'|'networks'|'studio'|'labels'|'collections'|'media'>):{name:string;id?:number}|undefined=>{
   if(item.streamingProvider)return{name:item.streamingProvider,...(item.streamingProviderId!==undefined?{id:item.streamingProviderId}:{})};
+  const override=(item.labels??[]).map((label)=>/^(?:vynode\s*[:.-]?\s*)?(?:originating\s+)?service\s*[:=]\s*(.+)$/i.exec(label.trim())?.[1]?.trim()).find(Boolean);
+  if(override){
+    const known=originServices.find((service)=>service.name.toLocaleLowerCase('en-US')===override.toLocaleLowerCase('en-US')||service.aliases.some((alias)=>alias===override.toLocaleLowerCase('en-US')));
+    return known?{name:known.name,id:known.id}:{name:override};
+  }
   const sources=[...(item.networks??[]),item.studio??'',...(item.labels??[]),...(item.collections??[]),...(item.media??[]).map((entry)=>entry.filePath??'')].map((value)=>value.toLocaleLowerCase('en-US'));
   const matched=originServices.find((service)=>service.aliases.some((alias)=>sources.some((source)=>source.includes(alias))));
   return matched?{name:matched.name,id:matched.id}:undefined;

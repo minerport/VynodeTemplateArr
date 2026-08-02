@@ -5357,7 +5357,7 @@ export const MainApp = ({
         </nav>
         <div className="sidebar-version">
           <small>Serious test build</small>
-          <span>Vynode 0.1.0-rc.8</span>
+          <span>Vynode 0.1.0-rc.9</span>
         </div>
       </aside>
       <section className="main-content">
