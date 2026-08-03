@@ -137,6 +137,13 @@ export class OverlayApplicationService {
     return bytes;
   }
 
+  public async discardPreservedBase(ratingKey: string): Promise<void> {
+    const state = await this.options.states.get(ratingKey);
+    if (!state) return;
+    await this.options.states.delete(ratingKey);
+    await this.options.bases.delete?.(state.basePosterKey);
+  }
+
   public async preview(
     item: OverlayApplicationItem,
     templates: readonly OverlayTemplateSummary[],

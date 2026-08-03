@@ -35,6 +35,8 @@ export const PosterOverlaysPage = () => {
   const [density, setDensity] = useState(() => localStorage.getItem('vynode.overlayGridDensity') ?? 'comfortable');
   const [selectedLibrary, setSelectedLibrary] = useState<OverlayLibraryConfiguration>();
   const [resetLibrary, setResetLibrary] = useState<OverlayLibraryConfiguration>();
+  const [refreshLibrary, setRefreshLibrary] = useState<OverlayLibraryConfiguration>();
+  const [refreshConfirmation, setRefreshConfirmation] = useState('');
   const [draftTemplateIds, setDraftTemplateIds] = useState<string[]>([]);
   const [hiddenPreviewIds, setHiddenPreviewIds] = useState<string[]>([]);
   const [draftLanguage, setDraftLanguage] = useState('');
@@ -169,15 +171,23 @@ export const PosterOverlaysPage = () => {
       setLibraryMutationBusy(undefined);
     }
   };
-  const runLibraryAction = async (library: OverlayLibraryConfiguration, action: 'apply' | 'cancel' | 'reset') => {
+  const runLibraryAction = async (library: OverlayLibraryConfiguration, action: 'apply' | 'cancel' | 'reset' | 'refresh') => {
     if (libraryMutationBusy) return;
     setLibraryMutationBusy(library.id);
-    setMessage(`${action === 'apply' ? 'Starting overlays for' : action === 'cancel' ? 'Stopping' : 'Resetting'} ${library.name}…`);
+    setMessage(`${action === 'apply' ? 'Starting overlays for' : action === 'cancel' ? 'Stopping' : action === 'refresh' ? 'Requesting fresh Plex posters for' : 'Resetting'} ${library.name}…`);
     try {
-      const result = action === 'apply' ? await api.applyPosterLibrary(library.id) : action === 'cancel' ? await api.cancelPosterLibrary(library.id) : await api.resetPosterLibrary(library.id);
+      const result = action === 'apply'
+        ? await api.applyPosterLibrary(library.id)
+        : action === 'cancel'
+          ? await api.cancelPosterLibrary(library.id)
+          : action === 'refresh'
+            ? await api.refreshPlexLibraryPosters(library.id, refreshConfirmation)
+            : await api.resetPosterLibrary(library.id);
       setWorkspace(result);
       setResetLibrary(undefined);
-      setMessage(action === 'cancel' ? 'Cancellation requested. The current item will finish safely.' : `${action === 'reset' ? 'Poster reset' : 'Overlay application'} started. You can leave this page while it runs.`);
+      setRefreshLibrary(undefined);
+      setRefreshConfirmation('');
+      setMessage(action === 'cancel' ? 'Cancellation requested. The current item will finish safely.' : `${action === 'reset' ? 'Poster reset' : action === 'refresh' ? 'Fresh Plex poster retrieval' : 'Overlay application'} started. You can leave this page while it runs.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to start poster operation.');
       await load();
@@ -334,7 +344,7 @@ export const PosterOverlaysPage = () => {
               {!library.enabledTemplateIds.length && (
                 <p className="helper-text">No overlays are selected for this library. Choose one or more overlays before applying.</p>
               )}
-              <footer><button className="button secondary" disabled={libraryMutationBusy === library.id} onClick={() => openLibrary(library)}>Configure overlays</button><button className="button secondary danger" disabled={libraryMutationBusy === library.id} onClick={() => setResetLibrary(library)}>Reset library</button>{['queued', 'processing', 'cancelling'].includes(library.status) ? <button className="button danger" disabled={library.status === 'cancelling' || libraryMutationBusy === library.id} onClick={() => void runLibraryAction(library, 'cancel')}>Stop safely</button> : library.enabledTemplateIds.length ? <button className="button primary" disabled={libraryMutationBusy === library.id} onClick={() => void runLibraryAction(library, 'apply')}>{libraryMutationBusy === library.id ? 'Starting…' : 'Apply overlays'}</button> : <button className="button primary" disabled={libraryMutationBusy === library.id} onClick={() => openLibrary(library)}>Choose overlays</button>}</footer>
+              <footer><button className="button secondary" disabled={libraryMutationBusy === library.id} onClick={() => openLibrary(library)}>Configure overlays</button><button className="button secondary danger" disabled={libraryMutationBusy === library.id} onClick={() => setResetLibrary(library)}>Reset library</button><button className="button secondary danger" disabled={libraryMutationBusy === library.id || ['queued', 'processing', 'cancelling'].includes(library.status)} onClick={() => setRefreshLibrary(library)}>Fetch fresh posters</button>{['queued', 'processing', 'cancelling'].includes(library.status) ? <button className="button danger" disabled={library.status === 'cancelling' || libraryMutationBusy === library.id} onClick={() => void runLibraryAction(library, 'cancel')}>Stop safely</button> : library.enabledTemplateIds.length ? <button className="button primary" disabled={libraryMutationBusy === library.id} onClick={() => void runLibraryAction(library, 'apply')}>{libraryMutationBusy === library.id ? 'Starting…' : 'Apply overlays'}</button> : <button className="button primary" disabled={libraryMutationBusy === library.id} onClick={() => openLibrary(library)}>Choose overlays</button>}</footer>
             </article>;
           })}
         </div>
@@ -362,6 +372,7 @@ export const PosterOverlaysPage = () => {
         <footer className="modal-actions"><button className="button secondary" disabled={libraryMutationBusy === selectedLibrary.id} onClick={() => setSelectedLibrary(undefined)}>Cancel</button><button className="button secondary" disabled={libraryMutationBusy === selectedLibrary.id} onClick={() => void saveLibrary()}>Save only</button><button className="button primary" disabled={libraryMutationBusy === selectedLibrary.id} onClick={() => void saveLibrary(true)}>{libraryMutationBusy === selectedLibrary.id ? 'Starting…' : 'Save and apply'}</button></footer>
       </section></div>}
       {resetLibrary && <div className="modal-backdrop" role="presentation"><section className="poster-modal reset-modal" role="alertdialog" aria-modal="true" aria-labelledby="reset-title"><div className="modal-heading"><div><p className="eyebrow danger-text">Destructive operation</p><h2 id="reset-title">Confirm poster reset</h2></div><button className="icon-button" aria-label="Close poster reset confirmation" onClick={() => setResetLibrary(undefined)}>×</button></div><p>This will reset <strong>all posters in “{resetLibrary.name}”</strong> to their base versions without overlays. The current {sourceCopy[workspace.source.source].name} source will be respected.</p><div className="warning-panel"><strong>This operation cannot be undone.</strong><p>Every overlay-modified poster in this library will be replaced.</p></div><footer className="modal-actions"><button className="button secondary" onClick={() => setResetLibrary(undefined)}>Cancel</button><button className="button danger" onClick={() => void runLibraryAction(resetLibrary, 'reset')}>Reset all posters</button></footer></section></div>}
+      {refreshLibrary && <div className="modal-backdrop" role="presentation"><section className="poster-modal reset-modal" role="alertdialog" aria-modal="true" aria-labelledby="refresh-posters-title"><div className="modal-heading"><div><p className="eyebrow danger-text">Recovery operation</p><h2 id="refresh-posters-title">Fetch fresh Plex posters</h2></div><button className="icon-button" aria-label="Close fresh poster confirmation" onClick={() => { setRefreshLibrary(undefined); setRefreshConfirmation(''); }}>×</button></div><p>This removes Vynode overlay recovery data for <strong>{refreshLibrary.name}</strong>, unlocks each poster, and asks Plex metadata agents to fetch a fresh poster.</p><div className="warning-panel"><strong>Use this only when preserved originals are already broken.</strong><p>Wait for Plex metadata refreshes to finish before applying overlays again.</p></div><label><span>Type <strong>FETCH NEW POSTERS</strong> to confirm</span><input value={refreshConfirmation} onChange={(event) => setRefreshConfirmation(event.target.value)} autoComplete="off" /></label><footer className="modal-actions"><button className="button secondary" onClick={() => { setRefreshLibrary(undefined); setRefreshConfirmation(''); }}>Cancel</button><button className="button danger" disabled={refreshConfirmation !== 'FETCH NEW POSTERS' || libraryMutationBusy === refreshLibrary.id} onClick={() => void runLibraryAction(refreshLibrary, 'refresh')}>Fetch fresh posters</button></footer></section></div>}
       {testOpen && <div className="modal-backdrop" role="presentation"><section className="poster-modal test-item-modal" role="dialog" aria-modal="true" aria-labelledby="test-title"><div className="modal-heading"><div><p className="eyebrow">Diagnostic preview</p><h2 id="test-title">{testResult ? 'Test item — Results' : 'Test item — Search'}</h2><p>{testResult ? 'See which templates matched and inspect the exact context used by the renderer.' : 'Search for a movie or TV show in the connected Plex libraries.'}</p></div><button className="icon-button" aria-label="Close test item dialog" onClick={() => setTestOpen(false)}>×</button></div>
         {!testResult ? (
           <>

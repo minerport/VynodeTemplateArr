@@ -198,6 +198,8 @@ test('uploads item posters and preserves unrelated labels when toggling Overlay'
       await client.uploadPoster('movie/101', new Uint8Array([4, 5, 6]));
       await client.setOverlayLabel('movie/101', false);
       await client.setOverlayLabel('movie/101', true);
+      await client.unlockPoster('movie/101');
+      await client.refreshMetadata('movie/101');
       await client.markUnplayed('movie/101');
     }
   );
@@ -217,6 +219,8 @@ test('uploads item posters and preserves unrelated labels when toggling Overlay'
         'PUT',
         '/library/metadata/movie%2F101?label%5B0%5D.tag.tag=Favorite&label%5B1%5D.tag.tag=Overlay&label.locked=1',
       ],
+      ['PUT', '/library/metadata/movie%2F101?thumb.locked=0'],
+      ['PUT', '/library/metadata/movie%2F101/refresh'],
       [
         'PUT',
         '/:/unscrobble?key=movie%2F101&identifier=com.plexapp.plugins.library',

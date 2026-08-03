@@ -1059,7 +1059,7 @@ export interface OverlayLibraryConfiguration {
     | 'error';
   processedItems: number;
   failedItems: number;
-  operation?: 'apply' | 'reset' | 'download-base-posters';
+  operation?: 'apply' | 'reset' | 'download-base-posters' | 'refresh-plex-posters';
   lastAppliedItems?: number;
   lastRestoredItems?: number;
   lastSkippedItems?: number;

@@ -399,6 +399,11 @@ export const api = {
       `/api/posters/overlays/libraries/${encodeURIComponent(id)}/reset`,
       { method: 'POST' }
     ),
+  refreshPlexLibraryPosters: (id: string, confirmation: string) =>
+    request<PosterOverlayWorkspace>(
+      `/api/posters/overlays/libraries/${encodeURIComponent(id)}/refresh-posters`,
+      { method: 'POST', body: JSON.stringify({ confirmation }) }
+    ),
   searchPosterTestItems: (query: string, libraryId?: string) =>
     request<{ results: readonly PosterTestSearchItem[] }>(
       `/api/posters/overlays/test-items?query=${encodeURIComponent(query)}${libraryId ? `&libraryId=${encodeURIComponent(libraryId)}` : ''}`

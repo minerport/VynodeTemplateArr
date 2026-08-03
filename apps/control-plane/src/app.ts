@@ -612,6 +612,7 @@ export interface ControlPlaneDependencies {
     startAllLibraryJobs?(): Promise<PosterOverlayWorkspace | undefined>;
     cancelLibraryJob?(id: string): Promise<PosterOverlayWorkspace | undefined>;
     resetLibrary?(id: string): Promise<PosterOverlayWorkspace | undefined>;
+    refreshLibraryPosters?(id: string): Promise<PosterOverlayWorkspace | undefined>;
     generateLocalFolders?(): Promise<LocalPosterWorkspaceResult>;
     populateLocalPosters?(): Promise<LocalPosterWorkspaceResult>;
     searchItems?(
@@ -2035,6 +2036,24 @@ export const createControlPlane = async (
             message:
               'This library is already processing or could not be found.',
           });
+      return updated;
+    }
+  );
+
+  app.post<{ Params: { id: string }; Body: { confirmation?: string } }>(
+    '/api/posters/overlays/libraries/:id/refresh-posters',
+    async (request, reply) => {
+      if (request.body?.confirmation !== 'FETCH NEW POSTERS')
+        return reply.code(400).send({
+          message: 'Type FETCH NEW POSTERS exactly to force a Plex poster refresh.',
+        });
+      if (!dependencies.posterOverlays?.refreshLibraryPosters)
+        return reply.code(503).send({ message: 'Plex poster refresh jobs are unavailable.' });
+      const updated = await dependencies.posterOverlays.refreshLibraryPosters(request.params.id);
+      if (!updated)
+        return reply.code(409).send({
+          message: 'This library is already processing or could not be found.',
+        });
       return updated;
     }
   );

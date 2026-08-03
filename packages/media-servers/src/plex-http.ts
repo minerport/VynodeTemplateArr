@@ -456,6 +456,26 @@ export class PlexManagementClient {
     return this.uploadCollectionAsset(ratingKey, 'poster', body, signal);
   }
 
+  public unlockPoster(
+    ratingKey: string,
+    signal?: AbortSignal
+  ): Promise<void> {
+    return this.transport.put(
+      `/library/metadata/${encodeURIComponent(ratingKey)}?thumb.locked=0`,
+      signal
+    );
+  }
+
+  public refreshMetadata(
+    ratingKey: string,
+    signal?: AbortSignal
+  ): Promise<void> {
+    return this.transport.put(
+      `/library/metadata/${encodeURIComponent(ratingKey)}/refresh`,
+      signal
+    );
+  }
+
   public async setOverlayLabel(
     ratingKey: string,
     enabled: boolean,

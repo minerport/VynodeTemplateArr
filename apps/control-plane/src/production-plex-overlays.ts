@@ -481,6 +481,71 @@ export class ProductionPlexOverlayExecutor implements ProductionPosterOverlayOpe
   }
   async cancelLibraryJob(id: string) { const controller = this.#controllers.get(id); if (!controller) return undefined; controller.abort(); await this.store.updateLibraryRun(id, { status: 'cancelling' }); return this.store.get(); }
   async resetLibrary(id: string) { const library = (await this.store.get()).libraries.find((value) => value.id === id); if (!library || this.#controllers.has(id)) return undefined; const controller = new AbortController(); this.#controllers.set(id, controller); await this.store.updateLibraryRun(id, { status: 'processing', operation: 'reset' }); void this.#runLibrary(library, controller.signal, true).then((result) => this.#finish(id, result, true)).catch(() => this.store.updateLibraryRun(id, { status: controller.signal.aborted ? 'idle' : 'error', operation: undefined, failedItems: controller.signal.aborted ? 0 : 1 })).finally(() => this.#controllers.delete(id)); return this.store.get(); }
+  async refreshLibraryPosters(id: string) {
+    const library = (await this.store.get()).libraries.find((value) => value.id === id);
+    if (!library || this.#controllers.has(id)) return undefined;
+    const controller = new AbortController();
+    this.#controllers.set(id, controller);
+    await this.store.updateLibraryRun(id, {
+      status: 'processing',
+      operation: 'refresh-plex-posters',
+      processedItems: 0,
+      failedItems: 0,
+      lastError: undefined,
+    });
+    void (async () => {
+      const items = await this.#items(id, controller.signal);
+      const failures: string[] = [];
+      let completed = 0;
+      const client = new PlexManagementClient((await this.plex()).transport);
+      for (const item of items) {
+        controller.signal.throwIfAborted();
+        try {
+          await client.setOverlayLabel(item.ratingKey, false, controller.signal);
+          await client.unlockPoster(item.ratingKey, controller.signal);
+          await client.refreshMetadata(item.ratingKey, controller.signal);
+          await this.#application.discardPreservedBase(item.ratingKey);
+        } catch (error) {
+          failures.push(
+            `${item.title} (${item.ratingKey}): ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+        completed += 1;
+        await this.store.updateLibraryRun(id, {
+          processedItems: completed - failures.length,
+          failedItems: failures.length,
+        });
+      }
+      for (const failure of failures) this.reportFailure(id, failure);
+      await this.catalog?.invalidate(id);
+      await this.store.updateLibraryRun(id, {
+        status: failures.length ? 'error' : 'complete',
+        operation: undefined,
+        processedItems: completed - failures.length,
+        failedItems: failures.length,
+        lastAppliedItems: 0,
+        lastRestoredItems: 0,
+        lastSkippedItems: 0,
+        lastNoMatchItems: 0,
+        lastError: failures.length ? failures.join(' | ') : undefined,
+        lastAppliedAt: new Date().toISOString(),
+      });
+    })()
+      .catch((error) =>
+        this.store.updateLibraryRun(id, {
+          status: controller.signal.aborted ? 'idle' : 'error',
+          operation: undefined,
+          failedItems: controller.signal.aborted ? 0 : 1,
+          lastError: controller.signal.aborted
+            ? undefined
+            : error instanceof Error
+              ? error.message
+              : String(error),
+        })
+      )
+      .finally(() => this.#controllers.delete(id));
+    return this.store.get();
+  }
   async searchItems(query: string, libraryId?: string): Promise<readonly PosterTestSearchItem[]> { const workspace = await this.store.get(); const normalized = query.trim().toLowerCase(); const results: PosterTestSearchItem[] = []; for (const library of workspace.libraries.filter((value) => !libraryId || value.id === libraryId)) for (const item of await this.#items(library.id)) { if (normalized && !item.title.toLowerCase().includes(normalized)) continue; results.push({ ratingKey: item.ratingKey, title: item.title, ...(item.year ? { year: item.year } : {}), type: item.mediaType, libraryId: item.libraryId, libraryName: item.libraryName, posterUrl: `/api/posters/overlays/items/${encodeURIComponent(item.ratingKey)}/poster` }); if (results.length >= 50) return results; } return results; }
   async posterForItem(ratingKey: string) { return (await this.#application.preservedBasePoster(ratingKey)) ?? this.posterFromPlex(ratingKey); }
   async previewItem(ratingKey: string) {

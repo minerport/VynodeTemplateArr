@@ -41,6 +41,7 @@ export interface ProductionPosterOverlayOperations {
   startAllLibraryJobs(): Promise<PosterOverlayWorkspace | undefined>;
   cancelLibraryJob(id: string): Promise<PosterOverlayWorkspace | undefined>;
   resetLibrary(id: string): Promise<PosterOverlayWorkspace | undefined>;
+  refreshLibraryPosters(id: string): Promise<PosterOverlayWorkspace | undefined>;
   generateLocalFolders(): Promise<LocalPosterWorkspaceResult>;
   populateLocalPosters(): Promise<LocalPosterWorkspaceResult>;
   searchItems(query: string, libraryId?: string): Promise<readonly PosterTestSearchItem[]>;
@@ -155,6 +156,7 @@ export class ProductionPosterOverlayStore {
   public startAllLibraryJobs() { return this.#operations?.startAllLibraryJobs() ?? Promise.resolve(undefined); }
   public cancelLibraryJob(id: string) { return this.#operations?.cancelLibraryJob(id) ?? Promise.resolve(undefined); }
   public resetLibrary(id: string) { return this.#operations?.resetLibrary(id) ?? Promise.resolve(undefined); }
+  public refreshLibraryPosters(id: string) { return this.#operations?.refreshLibraryPosters(id) ?? Promise.resolve(undefined); }
   public generateLocalFolders() { if (!this.#operations) throw new Error('Overlay operations are unavailable.'); return this.#operations.generateLocalFolders(); }
   public populateLocalPosters() { if (!this.#operations) throw new Error('Overlay operations are unavailable.'); return this.#operations.populateLocalPosters(); }
   public searchItems(query: string, libraryId?: string) { return this.#operations?.searchItems(query, libraryId) ?? Promise.resolve([]); }
