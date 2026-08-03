@@ -265,6 +265,16 @@ export class OverlayApplicationService {
       for (const item of items) {
         signal?.throwIfAborted();
         try {
+          const existing = await this.options.states.get(item.ratingKey);
+          if (existing) {
+            results.push({
+              ratingKey: item.ratingKey,
+              status: 'failed',
+              reason:
+                'An overlay is active for this item. Restore it before replacing the preserved clean poster.',
+            });
+            continue;
+          }
           const acquired = await this.options.acquisition.acquire(
             'plex',
             item,
@@ -324,14 +334,11 @@ export class OverlayApplicationService {
       if (!preserved || digest(preserved) !== previous.basePosterHash) {
         throw new Error('The preserved base poster is missing or corrupt.');
       }
-      const acquiredHash = digest(acquired.bytes);
-      const plexPosterChanged =
-        source === 'plex' &&
-        acquiredHash !== previous.basePosterHash &&
-        acquiredHash !== previous.lastAppliedHash;
-      renderBase = plexPosterChanged ? acquired.bytes : preserved;
-      if (plexPosterChanged)
-        await this.options.bases.put(previous.basePosterKey, acquired.bytes);
+      // Plex may transcode or re-encode an uploaded poster, so its downloaded
+      // bytes are not a reliable signal that a user selected a new clean
+      // poster. Once captured, the base remains immutable until an explicit
+      // reset or confirmed clean-base replacement.
+      renderBase = preserved;
     }
     const context = await this.options.contexts.build(item, templates, {
       isPlaceholder: (item.labels ?? []).some((label) =>
@@ -406,8 +413,8 @@ export class OverlayApplicationService {
     if (!previous) await this.options.bases.put(basePosterKey, acquired.bytes);
     const basePosterHash = digest(renderBase);
 
-    await this.options.plex.uploadPoster(item.ratingKey, rendered.bytes, signal);
-    await this.options.plex.setOverlayLabel(item.ratingKey, true, signal);
+    // Persist recovery state before mutating Plex. If the process or upload
+    // fails, reset can still recover the original poster.
     await this.options.states.put({
       ratingKey: item.ratingKey,
       basePosterKey,
@@ -416,6 +423,8 @@ export class OverlayApplicationService {
       appliedTemplateIds: rendered.appliedTemplateIds,
       updatedAt: this.now().toISOString(),
     });
+    await this.options.plex.uploadPoster(item.ratingKey, rendered.bytes, signal);
+    await this.options.plex.setOverlayLabel(item.ratingKey, true, signal);
     return {
       ratingKey: item.ratingKey,
       status: 'applied',

@@ -215,12 +215,12 @@ test('re-applies an unchanged render so an explicit run repairs Plex poster drif
   ]);
 });
 
-test('detects a newly selected clean Plex poster and replaces the preserved base', async () => {
+test('never replaces the preserved base from Plex re-encoded overlay bytes', async () => {
   const current = fixture({ acquiredPosters: [[1, 2, 3], [4, 5, 6]] });
   await current.service.apply(items, templates, 'plex', 'en-US');
   await current.service.apply(items, templates, 'plex', 'en-US');
-  assert.deepEqual([...current.bases.get('base:101')!], [4, 5, 6]);
-  assert.deepEqual(current.renderedFrom, [[1, 2, 3], [4, 5, 6]]);
+  assert.deepEqual([...current.bases.get('base:101')!], [1, 2, 3]);
+  assert.deepEqual(current.renderedFrom, [[1, 2, 3], [1, 2, 3]]);
 });
 
 test('restores the exact preserved base, removes the label, then clears state', async () => {
@@ -242,7 +242,16 @@ test('retains the clean base when Plex upload fails', async () => {
   const result = await current.service.apply(items, templates, 'plex', 'en-US');
   assert.equal(result.failed, 1);
   assert.deepEqual([...current.bases.get('base:101')!], [1, 2, 3]);
-  assert.equal(current.states.has('101'), false);
+  assert.equal(current.states.has('101'), true);
+});
+
+test('refuses to replace a preserved clean base while an overlay is active', async () => {
+  const current = fixture();
+  await current.service.apply(items, templates, 'plex', 'en-US');
+  const result = await current.service.downloadCleanPlexBases(items);
+  assert.equal(result.failed, 1);
+  assert.match(result.items[0]?.reason ?? '', /Restore it before replacing/);
+  assert.deepEqual([...current.bases.get('base:101')!], [1, 2, 3]);
 });
 
 test('skips poster mutation when a critical context provider fails', async () => {
